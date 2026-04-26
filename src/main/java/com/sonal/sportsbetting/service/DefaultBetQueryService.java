@@ -1,8 +1,8 @@
 package com.sonal.sportsbetting.service;
 
-import com.sonal.sportsbetting.dto.BetDetailResponse;
-import com.sonal.sportsbetting.dto.CancelBetResponse;
-import com.sonal.sportsbetting.dto.UserBetSummaryResponse;
+import com.sonal.sportsbetting.dto.response.BetDetailResponse;
+import com.sonal.sportsbetting.dto.response.CancelBetResponse;
+import com.sonal.sportsbetting.dto.response.UserBetSummaryResponse;
 import com.sonal.sportsbetting.exception.BetNotFoundException;
 import com.sonal.sportsbetting.model.Bet;
 import com.sonal.sportsbetting.model.BetStatus;

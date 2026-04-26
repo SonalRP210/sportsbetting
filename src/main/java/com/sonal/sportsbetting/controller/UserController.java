@@ -1,8 +1,8 @@
 package com.sonal.sportsbetting.controller;
 
 import com.sonal.sportsbetting.config.AppConstants;
-import com.sonal.sportsbetting.dto.UserBetSummaryResponse;
-import com.sonal.sportsbetting.dto.UserExposureResponse;
+import com.sonal.sportsbetting.dto.response.UserBetSummaryResponse;
+import com.sonal.sportsbetting.dto.response.UserExposureResponse;
 import com.sonal.sportsbetting.service.BettingService;
 import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;

@@ -1,6 +1,6 @@
 package com.sonal.sportsbetting.service;
 
-import com.sonal.sportsbetting.dto.UserExposureResponse;
+import com.sonal.sportsbetting.dto.response.UserExposureResponse;
 
 import java.math.BigDecimal;
 

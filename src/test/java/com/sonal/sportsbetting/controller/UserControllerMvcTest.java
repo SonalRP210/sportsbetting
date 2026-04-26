@@ -1,7 +1,7 @@
 package com.sonal.sportsbetting.controller;
 
-import com.sonal.sportsbetting.dto.UserBetSummaryResponse;
-import com.sonal.sportsbetting.dto.UserExposureResponse;
+import com.sonal.sportsbetting.dto.response.UserBetSummaryResponse;
+import com.sonal.sportsbetting.dto.response.UserExposureResponse;
 import com.sonal.sportsbetting.config.CorrelationTestSupport;
 import com.sonal.sportsbetting.exception.GlobalExceptionHandler;
 import com.sonal.sportsbetting.service.BettingService;

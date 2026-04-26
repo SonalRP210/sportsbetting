@@ -1,7 +1,7 @@
 package com.sonal.sportsbetting.service;
 
-import com.sonal.sportsbetting.dto.PlaceBetRequest;
-import com.sonal.sportsbetting.dto.PlaceBetResponse;
+import com.sonal.sportsbetting.dto.request.PlaceBetRequest;
+import com.sonal.sportsbetting.dto.response.PlaceBetResponse;
 
 public interface BetPlacementService {
 

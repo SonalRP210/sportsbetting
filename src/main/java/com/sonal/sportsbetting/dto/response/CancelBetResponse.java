@@ -1,4 +1,4 @@
-package com.sonal.sportsbetting.dto;
+package com.sonal.sportsbetting.dto.response;
 
 public record CancelBetResponse(
         String betId,

@@ -1,6 +1,6 @@
 package com.sonal.sportsbetting.service;
 
-import com.sonal.sportsbetting.dto.UserExposureResponse;
+import com.sonal.sportsbetting.dto.response.UserExposureResponse;
 import com.sonal.sportsbetting.model.Bet;
 import com.sonal.sportsbetting.model.BetStatus;
 import com.sonal.sportsbetting.repository.BetRepository;

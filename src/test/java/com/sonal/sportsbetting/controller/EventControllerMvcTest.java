@@ -1,9 +1,9 @@
 package com.sonal.sportsbetting.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sonal.sportsbetting.dto.SettleEventRequest;
-import com.sonal.sportsbetting.dto.SettleEventResponse;
-import com.sonal.sportsbetting.dto.UserBetSummaryResponse;
+import com.sonal.sportsbetting.dto.request.SettleEventRequest;
+import com.sonal.sportsbetting.dto.response.SettleEventResponse;
+import com.sonal.sportsbetting.dto.response.UserBetSummaryResponse;
 import com.sonal.sportsbetting.config.CorrelationTestSupport;
 import com.sonal.sportsbetting.exception.GlobalExceptionHandler;
 import com.sonal.sportsbetting.exception.SettlementConflictException;

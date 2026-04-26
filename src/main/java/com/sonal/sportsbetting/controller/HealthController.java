@@ -1,7 +1,7 @@
 package com.sonal.sportsbetting.controller;
 
 import com.sonal.sportsbetting.config.AppConstants;
-import com.sonal.sportsbetting.dto.HealthResponse;
+import com.sonal.sportsbetting.dto.response.HealthResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;

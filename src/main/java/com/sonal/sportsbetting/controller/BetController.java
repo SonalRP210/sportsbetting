@@ -1,10 +1,10 @@
 package com.sonal.sportsbetting.controller;
 
 import com.sonal.sportsbetting.config.AppConstants;
-import com.sonal.sportsbetting.dto.BetDetailResponse;
-import com.sonal.sportsbetting.dto.CancelBetResponse;
-import com.sonal.sportsbetting.dto.PlaceBetRequest;
-import com.sonal.sportsbetting.dto.PlaceBetResponse;
+import com.sonal.sportsbetting.dto.request.PlaceBetRequest;
+import com.sonal.sportsbetting.dto.response.BetDetailResponse;
+import com.sonal.sportsbetting.dto.response.CancelBetResponse;
+import com.sonal.sportsbetting.dto.response.PlaceBetResponse;
 import com.sonal.sportsbetting.service.BettingService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;

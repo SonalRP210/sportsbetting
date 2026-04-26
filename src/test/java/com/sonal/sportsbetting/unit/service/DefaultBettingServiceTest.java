@@ -1,12 +1,12 @@
 package com.sonal.sportsbetting.unit.service;
 
-import com.sonal.sportsbetting.dto.BetDetailResponse;
-import com.sonal.sportsbetting.dto.CancelBetResponse;
-import com.sonal.sportsbetting.dto.PlaceBetRequest;
-import com.sonal.sportsbetting.dto.PlaceBetResponse;
-import com.sonal.sportsbetting.dto.SettleEventResponse;
-import com.sonal.sportsbetting.dto.UserBetSummaryResponse;
-import com.sonal.sportsbetting.dto.UserExposureResponse;
+import com.sonal.sportsbetting.dto.request.PlaceBetRequest;
+import com.sonal.sportsbetting.dto.response.BetDetailResponse;
+import com.sonal.sportsbetting.dto.response.CancelBetResponse;
+import com.sonal.sportsbetting.dto.response.PlaceBetResponse;
+import com.sonal.sportsbetting.dto.response.SettleEventResponse;
+import com.sonal.sportsbetting.dto.response.UserBetSummaryResponse;
+import com.sonal.sportsbetting.dto.response.UserExposureResponse;
 import com.sonal.sportsbetting.model.OddsUpdate;
 import com.sonal.sportsbetting.service.BetPlacementService;
 import com.sonal.sportsbetting.service.BetQueryService;

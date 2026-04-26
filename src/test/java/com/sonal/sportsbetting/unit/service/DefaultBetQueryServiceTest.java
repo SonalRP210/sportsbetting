@@ -1,6 +1,6 @@
 package com.sonal.sportsbetting.unit.service;
 
-import com.sonal.sportsbetting.dto.BetDetailResponse;
+import com.sonal.sportsbetting.dto.response.BetDetailResponse;
 import com.sonal.sportsbetting.exception.BetNotFoundException;
 import com.sonal.sportsbetting.model.Bet;
 import com.sonal.sportsbetting.model.BetStatus;

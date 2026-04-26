@@ -1,7 +1,7 @@
 package com.sonal.sportsbetting.integration;
 
-import com.sonal.sportsbetting.dto.PlaceBetRequest;
-import com.sonal.sportsbetting.dto.PlaceBetResponse;
+import com.sonal.sportsbetting.dto.request.PlaceBetRequest;
+import com.sonal.sportsbetting.dto.response.PlaceBetResponse;
 import com.sonal.sportsbetting.model.OddsUpdate;
 import com.sonal.sportsbetting.repository.BetRepository;
 import com.sonal.sportsbetting.repository.EventSettlementRepository;

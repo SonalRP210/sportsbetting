@@ -24,11 +24,15 @@ public final class AppConstants {
     public static final class Messages {
         public static final String ODDS_FEED_ACCEPTED = "accepted";
         public static final String HEALTH_UP = "UP";
-        public static final String SERVICE_NAME = "sportsbetting";
         public static final String VALIDATION_ERROR = "VALIDATION_ERROR";
         public static final String BUSINESS_RULE_VIOLATION = "BUSINESS_RULE_VIOLATION";
         public static final String INTERNAL_ERROR = "INTERNAL_ERROR";
         public static final String BET_NOT_FOUND = "BET_NOT_FOUND";
+        public static final String RATE_LIMITED = "RATE_LIMITED";
+        public static final String SETTLEMENT_CONFLICT = "SETTLEMENT_CONFLICT";
+        public static final String TRANSIENT_FAILURE = "TRANSIENT_FAILURE";
+        public static final String CONCURRENT_MODIFICATION = "CONCURRENT_MODIFICATION";
+        public static final String DUPLICATE_RESOURCE = "DUPLICATE_RESOURCE";
 
         private Messages() {
         }

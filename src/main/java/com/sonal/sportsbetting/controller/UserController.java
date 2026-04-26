@@ -29,8 +29,8 @@ public class UserController {
     @GetMapping(AppConstants.Api.USER_BETS)
     public ResponseEntity<List<UserBetSummaryResponse>> userBets(
             @PathVariable String userId,
-            @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "20") @Min(1) int size) {
+            @RequestParam(defaultValue = "${app.pagination.default-page}") @Min(0) int page,
+            @RequestParam(defaultValue = "${app.pagination.default-page-size}") @Min(1) int size) {
         return ResponseEntity.ok(service.getUserSummary(userId, page, size));
     }
 

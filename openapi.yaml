@@ -450,3 +450,6 @@ components:
         timestamp:
           type: string
           format: date-time
+        traceId:
+          type: string
+          description: Request correlation id (from X-Request-Id or generated)

@@ -1,71 +1,84 @@
-# Sports Betting Interview Sandbox (Intentionally Flawed)
+# Sports Betting — Interview Practice Backend
 
-This repository is intentionally designed to be messy and error-prone for technical interview preparation.
+Spring Boot service for practicing **code review**, **refactors**, **API design**, and **system-design Q&A** around a small betting domain (place bet, odds feed, settlement, queries).
 
-## Why this project exists
+The repo started as an intentionally rough scaffold; it has since been **partially hardened** (JPA, validation, rate limits, idempotency, settlement ledger, retries, observability). You can still use it to discuss trade-offs, gaps, and “what we would do next.”
 
-Use this codebase to practice:
-- Code review comments
-- Refactoring strategy
-- System design Q&A tied to real code
-- Risk analysis and production-readiness discussion
+## Tech stack
 
-## Domain
+- Java 21, Spring Boot 3.3
+- Spring Web, Validation, Data JPA, Actuator (metrics/Prometheus)
+- H2 (in-memory) for local run and tests
+- OpenAPI / Swagger UI (`springdoc-openapi`)
+- Spring Retry (`RetryTemplate`) for transient persistence failures
 
-Minimal sports betting backend:
-- Place bet
-- Ingest odds updates
-- Settle event
-- Fetch user summary
+## API base path
 
-## Intentionally planted issues
+- Versioned base: **`/api/v1`** (see `application.yaml` → `api.base-path`)
 
-### Code quality and design
-- Very large `BettingService` with too many responsibilities
-- No interfaces between controller/service/repository
-- Tight coupling to concrete classes
-- Primitive obsession (`Map<String, Object>` request/response)
-- Inconsistent naming (`user`, `id`, `winner`, `selection`)
+Main flows:
 
-### API design
-- Poor endpoint modeling and request contracts
-- No versioning strategy
-- Inconsistent response formats
-- Returns HTTP 200 on hidden failures
+| Action | Method | Path / notes |
+|--------|--------|----------------|
+| Place bet | `POST` | `/api/v1/bets` — optional header **`Idempotency-Key`** |
+| Odds feed | `POST` | `/api/v1/odds-feed` |
+| Settle event | `POST` | `/api/v1/events/settlements` — body `eventId`, `winningSelection` |
+| User / event queries | `GET` | See controllers under `com.sonal.sportsbetting.controller` |
 
-### Performance
-- N+1-like repeated full scans over in-memory storage
-- Event processing does nested loops
-- Artificial blocking call in request path (`Thread.sleep`)
+## Reliability and concurrency (current behavior)
 
-### Concurrency and thread safety
-- Shared mutable state with non-thread-safe collections
-- Global exposure and odds map updated without synchronization
-- Time-based bet IDs can collide under load
+- **Bet idempotency**: `Idempotency-Key` + `userId` stored on `Bet` (unique constraint). Replays return the same logical bet without double exposure.
+- **Settlement idempotency**: `EventSettlement` ledger per `eventId`. Same winner → replay from ledger; **different** winner → HTTP **409** (`SETTLEMENT_CONFLICT`).
+- **Concurrent settlement**: `findByEventIdAndStatusForUpdate` uses **pessimistic write** locks on open bets for the event.
+- **Optimistic locking**: `Bet` has `@Version` (`opt_lock`) for concurrent update detection (mapped to **409** on conflict).
+- **Retries**: `persistenceRetryTemplate` retries **`save`** on `TransientDataAccessException` (not used for “missing odds” business errors).
 
-### Error handling and resilience
-- Catches generic exceptions and swallows root cause
-- Success messages returned for failed operations
-- No retry strategy, no dead-letter handling concept
+## Observability
 
-### Observability
-- Root logging disabled
-- No structured logs, metrics, tracing, or correlation IDs
+- **Request correlation**: `RequestCorrelationFilter` — `X-Request-Id` (or generated), echoed in response; value in MDC as `traceId`.
+- **Logging**: `application.yaml` — console pattern includes `traceId`; package `com.sonal.sportsbetting` at INFO.
+- **Errors**: `ApiErrorResponse` includes optional **`traceId`** when MDC is set.
+- **Metrics**: Micrometer counters (e.g. bets placed, settlements, idempotent replays); exposure gauge — see services.
 
-## Suggested practice checklist
+## Rate limiting
 
-1. Review code as if it were a PR and list top risks first.
-2. Prioritize correctness and data consistency.
-3. Refactor in small, safe commits.
-4. Introduce DTOs and validation.
-5. Add meaningful tests (happy path + edge cases + concurrency).
-6. Propose observability and resilience improvements.
+- Servlet filter + `app.rate-limit` in `application.yaml` (see `RateLimitingFilter`, `RateLimitProperties`).
+
+## Tunable configuration (`application.yaml`)
+
+Operational and domain defaults live under `app.*` (no magic numbers in services for these):
+
+| Prefix | Examples |
+|--------|----------|
+| `app.betting` | `bet-id-prefix`, `money-scale`, `money-rounding-mode`, `idempotency-key-max-length` |
+| `app.pagination` | `default-page`, `default-page-size` (used by list endpoints) |
+| `app.correlation` | `request-id-header`, `response-id-header`, `mdc-key` |
+| `app.http` | `idempotency-key-header` |
+| `app.odds` | `composite-key-separator` (in-memory odds map key) |
+| `app.retry.persistence` | `max-attempts`, `backoff-millis` |
+
+`spring.application.name` drives the **service** field on `/health`. Rate limits remain under `app.rate-limit`.
+
+## Documentation
+
+| File | Purpose |
+|------|---------|
+| `PRACTICE_GUIDE.md` | Mock interview rounds and prompts |
+| `CHANGE_NOTES_BUSINESS.md` | Why major changes were made (business / risk framing) |
+
+## Run and test
+
+```bash
+mvn spring-boot:run
+mvn test
+```
+
+Swagger UI (when app is running): **`/swagger-ui.html`** (see `application.yaml` for `springdoc` paths).
 
 ## Example interview prompts
 
-- "What are the top 5 production risks in this code?"
-- "How would you break this service into smaller components?"
-- "How do you make odds ingestion safe under concurrency?"
-- "What would you log and measure in production?"
-- "How would you redesign this API for versioned public use?"
-Sports Betting Project
+- “Walk through idempotency for `POST /bets` vs settlement — what can still go wrong under load?”
+- “Why pessimistic locks here instead of only optimistic versioning?”
+- “How would you add Kafka for odds while keeping at-least-once semantics safe?”
+- “What is still not production-grade in exposure accounting?”
+- “How would you extend error responses for clients without leaking internals?”

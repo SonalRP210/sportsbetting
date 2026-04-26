@@ -38,8 +38,8 @@ public class EventController {
     @GetMapping(AppConstants.Api.EVENT_BETS)
     public ResponseEntity<List<UserBetSummaryResponse>> eventBets(
             @PathVariable String eventId,
-            @RequestParam(defaultValue = "0") @Min(0) int page,
-            @RequestParam(defaultValue = "20") @Min(1) int size) {
+            @RequestParam(defaultValue = "${app.pagination.default-page}") @Min(0) int page,
+            @RequestParam(defaultValue = "${app.pagination.default-page-size}") @Min(1) int size) {
         return ResponseEntity.ok(service.getEventBets(eventId, page, size));
     }
 }

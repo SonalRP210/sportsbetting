@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -27,8 +28,10 @@ public class BetController {
     }
 
     @PostMapping(AppConstants.Api.BETS)
-    public ResponseEntity<PlaceBetResponse> placeBet(@Valid @RequestBody PlaceBetRequest req) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(service.placeBet(req));
+    public ResponseEntity<PlaceBetResponse> placeBet(
+            @Valid @RequestBody PlaceBetRequest req,
+            @RequestHeader(value = "${app.http.idempotency-key-header}", required = false) String idempotencyKey) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(service.placeBet(req, idempotencyKey));
     }
 
     @GetMapping(AppConstants.Api.BET_BY_ID)

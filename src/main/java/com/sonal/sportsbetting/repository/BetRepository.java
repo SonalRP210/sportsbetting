@@ -1,49 +1,25 @@
 package com.sonal.sportsbetting.repository;
 
 import com.sonal.sportsbetting.model.Bet;
-import org.springframework.stereotype.Repository;
+import com.sonal.sportsbetting.model.BetStatus;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 
-@Repository
-public class BetRepository {
+public interface BetRepository extends JpaRepository<Bet, String> {
 
-    private static final Map<String, Bet> betTable = new HashMap<>();
+    List<Bet> findByUserId(String userId);
 
-    public Bet save(Bet bet) {
-        betTable.put(bet.getBetId(), bet);
-        return bet;
-    }
+    List<Bet> findByEventId(String eventId);
 
-    public Bet findById(String id) {
-        return betTable.get(id);
-    }
+    Optional<Bet> findByUserIdAndIdempotencyKey(String userId, String idempotencyKey);
 
-    public List<Bet> findByUserId(String userId) {
-        List<Bet> bets = new ArrayList<>();
-        for (String id : betTable.keySet()) {
-            Bet bet = betTable.get(id);
-            if (bet != null && bet.getUserId() != null && bet.getUserId().equals(userId)) {
-                bets.add(bet);
-            }
-        }
-        return bets;
-    }
-
-    public List<Bet> findAll() {
-        return new ArrayList<>(betTable.values());
-    }
-
-    public List<Bet> findByEventId(String eventId) {
-        List<Bet> bets = new ArrayList<>();
-        for (Bet bet : betTable.values()) {
-            if (bet != null && eventId.equals(bet.getEventId())) {
-                bets.add(bet);
-            }
-        }
-        return bets;
-    }
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select b from Bet b where b.eventId = :eventId and b.status = :status")
+    List<Bet> findByEventIdAndStatusForUpdate(@Param("eventId") String eventId, @Param("status") BetStatus status);
 }

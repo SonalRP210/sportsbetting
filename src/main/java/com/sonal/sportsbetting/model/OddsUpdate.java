@@ -1,9 +1,19 @@
 package com.sonal.sportsbetting.model;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+
+import java.math.BigDecimal;
+
 public class OddsUpdate {
+    @NotBlank
     private String eventId;
+    @NotBlank
     private String selection;
-    private double odds;
+    @NotNull
+    @Positive
+    private BigDecimal odds;
 
     public String getEventId() {
         return eventId;
@@ -21,11 +31,11 @@ public class OddsUpdate {
         this.selection = selection;
     }
 
-    public double getOdds() {
+    public BigDecimal getOdds() {
         return odds;
     }
 
-    public void setOdds(double odds) {
+    public void setOdds(BigDecimal odds) {
         this.odds = odds;
     }
 }

@@ -1,0 +1,452 @@
+openapi: 3.0.3
+info:
+  title: Sports Betting API
+  version: 1.0.0
+  description: |
+    Public API contract for the sports betting service.
+    This spec models versioned API paths under /api/v1.
+servers:
+  - url: http://localhost:8080
+    description: Local
+tags:
+  - name: Bets
+  - name: Events
+  - name: Odds
+  - name: Health
+
+paths:
+  /api/v1/bets:
+    post:
+      tags: [Bets]
+      summary: Place a bet
+      operationId: placeBet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceBetRequest'
+      responses:
+        '201':
+          description: Bet created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlaceBetResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '422':
+          $ref: '#/components/responses/BusinessRuleViolation'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/bets/{betId}:
+    get:
+      tags: [Bets]
+      summary: Fetch bet by id
+      operationId: getBetById
+      parameters:
+        - $ref: '#/components/parameters/BetId'
+      responses:
+        '200':
+          description: Bet details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BetDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/bets/{betId}/cancel:
+    post:
+      tags: [Bets]
+      summary: Cancel an open bet
+      operationId: cancelBet
+      parameters:
+        - $ref: '#/components/parameters/BetId'
+      responses:
+        '200':
+          description: Bet cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelBetResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/BusinessRuleViolation'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/users/{userId}/bets:
+    get:
+      tags: [Bets]
+      summary: Fetch user bets
+      operationId: getUserBets
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: User bet list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserBetSummaryResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/users/{userId}/exposure:
+    get:
+      tags: [Bets]
+      summary: Fetch open exposure for user
+      operationId: getUserExposure
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: User exposure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserExposureResponse'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/events/{eventId}/bets:
+    get:
+      tags: [Events]
+      summary: Fetch bets for event
+      operationId: getEventBets
+      parameters:
+        - $ref: '#/components/parameters/EventId'
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Size'
+      responses:
+        '200':
+          description: Event bet list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserBetSummaryResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/events/settlements:
+    post:
+      tags: [Events]
+      summary: Settle an event
+      operationId: settleEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SettleEventRequest'
+      responses:
+        '200':
+          description: Settlement result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettleEventResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/odds-feed:
+    post:
+      tags: [Odds]
+      summary: Ingest odds updates
+      operationId: ingestOddsFeed
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/OddsUpdate'
+      responses:
+        '202':
+          description: Updates accepted
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: accepted
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/health:
+    get:
+      tags: [Health]
+      summary: Service health
+      operationId: health
+      responses:
+        '200':
+          description: Health status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+components:
+  parameters:
+    BetId:
+      name: betId
+      in: path
+      required: true
+      schema:
+        type: string
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+    EventId:
+      name: eventId
+      in: path
+      required: true
+      schema:
+        type: string
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Size:
+      name: size
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 20
+
+  responses:
+    ValidationError:
+      description: Validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    BusinessRuleViolation:
+      description: Business rule violation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    InternalError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+
+  schemas:
+    PlaceBetRequest:
+      type: object
+      required: [userId, eventId, selection, stake]
+      properties:
+        userId:
+          type: string
+          maxLength: 64
+        eventId:
+          type: string
+          maxLength: 64
+        selection:
+          type: string
+          maxLength: 64
+        stake:
+          type: string
+          description: Decimal string for precision-safe monetary values.
+          pattern: '^\d+(\.\d{1,2})?$'
+          example: "20.00"
+
+    PlaceBetResponse:
+      type: object
+      required: [betId, acceptedOdds, status]
+      properties:
+        betId:
+          type: string
+        acceptedOdds:
+          type: string
+          description: Decimal string for precision-safe odds.
+          pattern: '^\d+(\.\d{1,4})?$'
+          example: "1.75"
+        status:
+          type: string
+          enum: [OPEN, REJECTED, WON, LOST, CANCELLED]
+
+    SettleEventRequest:
+      type: object
+      required: [eventId, winningSelection]
+      properties:
+        eventId:
+          type: string
+        winningSelection:
+          type: string
+
+    SettleEventResponse:
+      type: object
+      required: [eventId, winningSelection, winners, losers, totalPayout, globalExposure]
+      properties:
+        eventId:
+          type: string
+        winningSelection:
+          type: string
+        winners:
+          type: integer
+        losers:
+          type: integer
+        totalPayout:
+          type: string
+          description: Decimal string for precision-safe monetary values.
+          pattern: '^\d+(\.\d{1,2})?$'
+          example: "1350.50"
+        globalExposure:
+          type: string
+          description: Decimal string for precision-safe monetary values.
+          pattern: '^\d+(\.\d{1,2})?$'
+          example: "5400.00"
+
+    UserBetSummaryResponse:
+      type: object
+      required: [betId, eventId, stake, odds, status]
+      properties:
+        betId:
+          type: string
+        eventId:
+          type: string
+        stake:
+          type: string
+          description: Decimal string for precision-safe monetary values.
+          pattern: '^\d+(\.\d{1,2})?$'
+          example: "25.00"
+        odds:
+          type: string
+          description: Decimal string for precision-safe odds.
+          pattern: '^\d+(\.\d{1,4})?$'
+          example: "1.95"
+        status:
+          type: string
+          enum: [OPEN, REJECTED, WON, LOST, CANCELLED]
+
+    BetDetailResponse:
+      type: object
+      required: [betId, userId, eventId, selection, stake, odds, status]
+      properties:
+        betId:
+          type: string
+        userId:
+          type: string
+        eventId:
+          type: string
+        selection:
+          type: string
+        stake:
+          type: string
+          description: Decimal string for precision-safe monetary values.
+          pattern: '^\d+(\.\d{1,2})?$'
+          example: "15.00"
+        odds:
+          type: string
+          description: Decimal string for precision-safe odds.
+          pattern: '^\d+(\.\d{1,4})?$'
+          example: "2.10"
+        status:
+          type: string
+          enum: [OPEN, REJECTED, WON, LOST, CANCELLED]
+
+    CancelBetResponse:
+      type: object
+      required: [betId, status, message]
+      properties:
+        betId:
+          type: string
+        status:
+          type: string
+          enum: [OPEN, REJECTED, WON, LOST, CANCELLED]
+        message:
+          type: string
+
+    UserExposureResponse:
+      type: object
+      required: [userId, openExposure, openBetCount]
+      properties:
+        userId:
+          type: string
+        openExposure:
+          type: string
+          description: Decimal string for precision-safe monetary values.
+          pattern: '^\d+(\.\d{1,2})?$'
+          example: "880.00"
+        openBetCount:
+          type: integer
+
+    OddsUpdate:
+      type: object
+      required: [eventId, selection, odds]
+      properties:
+        eventId:
+          type: string
+        selection:
+          type: string
+        odds:
+          type: string
+          description: Decimal string for precision-safe odds.
+          pattern: '^\d+(\.\d{1,4})?$'
+          example: "1.80"
+
+    HealthResponse:
+      type: object
+      required: [status, service, timestamp]
+      properties:
+        status:
+          type: string
+        service:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    ApiErrorResponse:
+      type: object
+      required: [code, message, fieldErrors, timestamp]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        fieldErrors:
+          type: object
+          additionalProperties:
+            type: string
+        timestamp:
+          type: string
+          format: date-time

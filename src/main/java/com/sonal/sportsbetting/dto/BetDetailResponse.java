@@ -1,26 +1,26 @@
-package com.sonal.sportsbetting.model;
+package com.sonal.sportsbetting.dto;
 
 import java.math.BigDecimal;
 
-public class Bet {
+public class BetDetailResponse {
     private String betId;
     private String userId;
     private String eventId;
+    private String selection;
     private BigDecimal stake;
     private BigDecimal odds;
-    private String selection;
-    private BetStatus status;
+    private String status;
 
-    public Bet() {
+    public BetDetailResponse() {
     }
 
-    public Bet(String betId, String userId, String eventId, BigDecimal stake, BigDecimal odds, String selection, BetStatus status) {
+    public BetDetailResponse(String betId, String userId, String eventId, String selection, BigDecimal stake, BigDecimal odds, String status) {
         this.betId = betId;
         this.userId = userId;
         this.eventId = eventId;
+        this.selection = selection;
         this.stake = stake;
         this.odds = odds;
-        this.selection = selection;
         this.status = status;
     }
 
@@ -48,6 +48,14 @@ public class Bet {
         this.eventId = eventId;
     }
 
+    public String getSelection() {
+        return selection;
+    }
+
+    public void setSelection(String selection) {
+        this.selection = selection;
+    }
+
     public BigDecimal getStake() {
         return stake;
     }
@@ -64,19 +72,11 @@ public class Bet {
         this.odds = odds;
     }
 
-    public String getSelection() {
-        return selection;
-    }
-
-    public void setSelection(String selection) {
-        this.selection = selection;
-    }
-
-    public BetStatus getStatus() {
+    public String getStatus() {
         return status;
     }
 
-    public void setStatus(BetStatus status) {
+    public void setStatus(String status) {
         this.status = status;
     }
 }

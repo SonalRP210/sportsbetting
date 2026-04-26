@@ -1,0 +1,20 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: sportsbetting
+
+logging:
+  level:
+    root: "OFF"
+
+api:
+  version: v1
+  base-path: /api/${api.version}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

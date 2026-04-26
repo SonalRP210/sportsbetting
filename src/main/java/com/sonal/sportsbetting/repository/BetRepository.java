@@ -36,4 +36,14 @@ public class BetRepository {
     public List<Bet> findAll() {
         return new ArrayList<>(betTable.values());
     }
+
+    public List<Bet> findByEventId(String eventId) {
+        List<Bet> bets = new ArrayList<>();
+        for (Bet bet : betTable.values()) {
+            if (bet != null && eventId.equals(bet.getEventId())) {
+                bets.add(bet);
+            }
+        }
+        return bets;
+    }
 }

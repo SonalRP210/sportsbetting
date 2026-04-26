@@ -1,4 +1,4 @@
-package com.sonal.sportsbetting;
+package com.sonal.sportsbetting.integration;
 
 import com.sonal.sportsbetting.dto.PlaceBetRequest;
 import com.sonal.sportsbetting.dto.PlaceBetResponse;

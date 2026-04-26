@@ -3,23 +3,40 @@ info:
   title: Sports Betting API
   version: 1.0.0
   description: |
-    Public API contract for the sports betting service.
-    This spec models versioned API paths under /api/v1.
+    Contract for the sports betting HTTP API (versioned under `/api/v1`).
+
+    **For integrators**
+    - Monetary amounts and odds are serialized as **JSON numbers** (Java `BigDecimal`), not quoted strings.
+    - **Correlation**: send optional header `X-Request-Id`; the same value is echoed on responses when present, otherwise a generated id is returned (`ApiErrorResponse.traceId` may also carry the value).
+    - **Idempotency** (place bet): optional header `Idempotency-Key` (see operation). Replays with the same key and user return the same bet.
+    - **Live machine-readable spec** (Springdoc): `/v3/api-docs` and UI at `/swagger-ui.html` when the service is running.
+
+    Error payloads use `application/json` and schema `ApiErrorResponse`. HTTP status indicates the class of problem; `code` is a stable machine-readable string.
 servers:
   - url: http://localhost:8080
-    description: Local
+    description: Local (default Spring Boot port)
 tags:
   - name: Bets
+    description: Place, query, and cancel bets
+  - name: Users
+    description: Per-user bet lists and exposure
   - name: Events
+    description: Event-scoped bets and settlement
   - name: Odds
+    description: Odds feed ingestion
   - name: Health
+    description: Liveness-style health
 
 paths:
   /api/v1/bets:
     post:
       tags: [Bets]
       summary: Place a bet
+      description: |
+        Creates a bet when odds exist for the event/selection. Optional `Idempotency-Key` scopes idempotent retries per user.
       operationId: placeBet
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -29,6 +46,9 @@ paths:
       responses:
         '201':
           description: Bet created
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
           content:
             application/json:
               schema:
@@ -37,6 +57,12 @@ paths:
           $ref: '#/components/responses/ValidationError'
         '422':
           $ref: '#/components/responses/BusinessRuleViolation'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -50,12 +76,19 @@ paths:
       responses:
         '200':
           description: Bet details
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/BetDetailResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
         '404':
           $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -68,22 +101,31 @@ paths:
         - $ref: '#/components/parameters/BetId'
       responses:
         '200':
-          description: Bet cancelled
+          description: Bet cancelled (or idempotent outcome for eligible bet)
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/CancelBetResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
         '404':
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/BusinessRuleViolation'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/InternalError'
 
   /api/v1/users/{userId}/bets:
     get:
-      tags: [Bets]
-      summary: Fetch user bets
+      tags: [Users]
+      summary: Paginated list of a user's bets
       operationId: getUserBets
       parameters:
         - $ref: '#/components/parameters/UserId'
@@ -91,7 +133,10 @@ paths:
         - $ref: '#/components/parameters/Size'
       responses:
         '200':
-          description: User bet list
+          description: User bet summaries (newest first as implemented by the service)
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
           content:
             application/json:
               schema:
@@ -100,30 +145,38 @@ paths:
                   $ref: '#/components/schemas/UserBetSummaryResponse'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/InternalError'
 
   /api/v1/users/{userId}/exposure:
     get:
-      tags: [Bets]
-      summary: Fetch open exposure for user
+      tags: [Users]
+      summary: Open exposure for a user
+      description: Aggregates stake for bets still in OPEN status.
       operationId: getUserExposure
       parameters:
         - $ref: '#/components/parameters/UserId'
       responses:
         '200':
-          description: User exposure
+          description: User exposure snapshot
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserExposureResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/InternalError'
 
   /api/v1/events/{eventId}/bets:
     get:
       tags: [Events]
-      summary: Fetch bets for event
+      summary: Paginated bets for an event
       operationId: getEventBets
       parameters:
         - $ref: '#/components/parameters/EventId'
@@ -131,7 +184,10 @@ paths:
         - $ref: '#/components/parameters/Size'
       responses:
         '200':
-          description: Event bet list
+          description: Bet summaries for the event
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
           content:
             application/json:
               schema:
@@ -140,13 +196,18 @@ paths:
                   $ref: '#/components/schemas/UserBetSummaryResponse'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/InternalError'
 
   /api/v1/events/settlements:
     post:
       tags: [Events]
-      summary: Settle an event
+      summary: Settle an event (declare winning selection)
+      description: |
+        First settlement persists winners/losers and ledger totals. Replaying the **same** winning selection returns the same counts and payout from the ledger.
+        A **different** winning selection after a completed settlement yields HTTP **409** (`SETTLEMENT_CONFLICT`).
       operationId: settleEvent
       requestBody:
         required: true
@@ -157,12 +218,23 @@ paths:
       responses:
         '200':
           description: Settlement result
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/SettleEventResponse'
         '400':
           $ref: '#/components/responses/ValidationError'
+        '422':
+          $ref: '#/components/responses/BusinessRuleViolation'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -170,6 +242,7 @@ paths:
     post:
       tags: [Odds]
       summary: Ingest odds updates
+      description: Accepts a batch of selection-level odds for events. Returns plain text body `accepted` with HTTP 202.
       operationId: ingestOddsFeed
       requestBody:
         required: true
@@ -181,7 +254,10 @@ paths:
                 $ref: '#/components/schemas/OddsUpdate'
       responses:
         '202':
-          description: Updates accepted
+          description: Updates accepted for processing
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
           content:
             text/plain:
               schema:
@@ -189,6 +265,8 @@ paths:
                 example: accepted
         '400':
           $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -200,13 +278,34 @@ paths:
       responses:
         '200':
           description: Health status
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/XRequestId'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
 
 components:
+  headers:
+    XRequestId:
+      description: Request correlation id (client-supplied or generated).
+      schema:
+        type: string
+
   parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Optional idempotency token for `POST /bets` (combined with `userId` server-side).
+      schema:
+        type: string
+        maxLength: 128
     BetId:
       name: betId
       in: path
@@ -229,6 +328,7 @@ components:
       name: page
       in: query
       required: false
+      description: Zero-based page index.
       schema:
         type: integer
         minimum: 0
@@ -237,6 +337,7 @@ components:
       name: size
       in: query
       required: false
+      description: Page size (minimum 1).
       schema:
         type: integer
         minimum: 1
@@ -244,29 +345,106 @@ components:
 
   responses:
     ValidationError:
-      description: Validation failed
+      description: Bean validation or constraint violation (HTTP 400).
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ApiErrorResponse'
+          examples:
+            fieldErrors:
+              value:
+                code: VALIDATION_ERROR
+                message: Request validation failed
+                fieldErrors:
+                  stake: must be greater than or equal to 0.01
+                timestamp: "2026-04-26T12:00:00Z"
+                traceId: "550e8400-e29b-41d4-a716-446655440000"
     BusinessRuleViolation:
-      description: Business rule violation
+      description: Business rule rejected the request (HTTP 422).
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ApiErrorResponse'
+          examples:
+            missingOdds:
+              value:
+                code: BUSINESS_RULE_VIOLATION
+                message: No odds available for requested event/selection
+                fieldErrors: {}
+                timestamp: "2026-04-26T12:00:00Z"
     NotFound:
-      description: Resource not found
+      description: Resource not found (HTTP 404).
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ApiErrorResponse'
+          examples:
+            bet:
+              value:
+                code: BET_NOT_FOUND
+                message: Bet not found
+                fieldErrors: {}
+                timestamp: "2026-04-26T12:00:00Z"
+    Conflict:
+      description: |
+        Conflict (HTTP 409): settlement disagreement with persisted ledger, optimistic locking,
+        or duplicate / integrity constraint as mapped by the server.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+          examples:
+            settlement:
+              value:
+                code: SETTLEMENT_CONFLICT
+                message: Event evt-1 already settled with selection home
+                fieldErrors: {}
+                timestamp: "2026-04-26T12:00:00Z"
+            concurrent:
+              value:
+                code: CONCURRENT_MODIFICATION
+                message: Resource was modified concurrently; retry the request
+                fieldErrors: {}
+                timestamp: "2026-04-26T12:00:00Z"
+    RateLimited:
+      description: Too many requests (HTTP 429).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+          examples:
+            limited:
+              value:
+                code: RATE_LIMITED
+                message: Too many requests. Please retry later.
+                fieldErrors: {}
+                timestamp: "2026-04-26T12:00:00Z"
+    ServiceUnavailable:
+      description: Transient dependency failure (HTTP 503).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+          examples:
+            transient:
+              value:
+                code: TRANSIENT_FAILURE
+                message: Service temporarily unavailable
+                fieldErrors: {}
+                timestamp: "2026-04-26T12:00:00Z"
     InternalError:
-      description: Unexpected server error
+      description: Unexpected server error (HTTP 500).
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ApiErrorResponse'
+          examples:
+            internal:
+              value:
+                code: INTERNAL_ERROR
+                message: Unexpected server error
+                fieldErrors: {}
+                timestamp: "2026-04-26T12:00:00Z"
 
   schemas:
     PlaceBetRequest:
@@ -283,10 +461,10 @@ components:
           type: string
           maxLength: 64
         stake:
-          type: string
-          description: Decimal string for precision-safe monetary values.
-          pattern: '^\d+(\.\d{1,2})?$'
-          example: "20.00"
+          type: number
+          description: Stake amount; must be >= 0.01.
+          minimum: 0.01
+          example: 20.0
 
     PlaceBetResponse:
       type: object
@@ -295,12 +473,12 @@ components:
         betId:
           type: string
         acceptedOdds:
-          type: string
-          description: Decimal string for precision-safe odds.
-          pattern: '^\d+(\.\d{1,4})?$'
-          example: "1.75"
+          type: number
+          description: Odds snapshot accepted for the bet.
+          example: 1.75
         status:
           type: string
+          description: Bet lifecycle status.
           enum: [OPEN, REJECTED, WON, LOST, CANCELLED]
 
     SettleEventRequest:
@@ -322,18 +500,18 @@ components:
           type: string
         winners:
           type: integer
+          format: int32
         losers:
           type: integer
+          format: int32
         totalPayout:
-          type: string
-          description: Decimal string for precision-safe monetary values.
-          pattern: '^\d+(\.\d{1,2})?$'
-          example: "1350.50"
+          type: number
+          description: Total payout for this settlement pass.
+          example: 1350.5
         globalExposure:
-          type: string
-          description: Decimal string for precision-safe monetary values.
-          pattern: '^\d+(\.\d{1,2})?$'
-          example: "5400.00"
+          type: number
+          description: In-memory global exposure snapshot after settlement (implementation detail; treat as informational).
+          example: 5400.0
 
     UserBetSummaryResponse:
       type: object
@@ -344,15 +522,11 @@ components:
         eventId:
           type: string
         stake:
-          type: string
-          description: Decimal string for precision-safe monetary values.
-          pattern: '^\d+(\.\d{1,2})?$'
-          example: "25.00"
+          type: number
+          example: 25.0
         odds:
-          type: string
-          description: Decimal string for precision-safe odds.
-          pattern: '^\d+(\.\d{1,4})?$'
-          example: "1.95"
+          type: number
+          example: 1.95
         status:
           type: string
           enum: [OPEN, REJECTED, WON, LOST, CANCELLED]
@@ -370,15 +544,11 @@ components:
         selection:
           type: string
         stake:
-          type: string
-          description: Decimal string for precision-safe monetary values.
-          pattern: '^\d+(\.\d{1,2})?$'
-          example: "15.00"
+          type: number
+          example: 15.0
         odds:
-          type: string
-          description: Decimal string for precision-safe odds.
-          pattern: '^\d+(\.\d{1,4})?$'
-          example: "2.10"
+          type: number
+          example: 2.1
         status:
           type: string
           enum: [OPEN, REJECTED, WON, LOST, CANCELLED]
@@ -402,12 +572,11 @@ components:
         userId:
           type: string
         openExposure:
-          type: string
-          description: Decimal string for precision-safe monetary values.
-          pattern: '^\d+(\.\d{1,2})?$'
-          example: "880.00"
+          type: number
+          example: 880.0
         openBetCount:
           type: integer
+          format: int32
 
     OddsUpdate:
       type: object
@@ -418,10 +587,9 @@ components:
         selection:
           type: string
         odds:
-          type: string
-          description: Decimal string for precision-safe odds.
-          pattern: '^\d+(\.\d{1,4})?$'
-          example: "1.80"
+          type: number
+          exclusiveMinimum: 0
+          example: 1.8
 
     HealthResponse:
       type: object
@@ -429,11 +597,15 @@ components:
       properties:
         status:
           type: string
+          example: UP
         service:
           type: string
+          description: Spring application name.
+          example: sportsbetting
         timestamp:
           type: string
           format: date-time
+          description: ISO-8601 instant when the health payload was built.
 
     ApiErrorResponse:
       type: object
@@ -441,10 +613,23 @@ components:
       properties:
         code:
           type: string
+          description: Stable machine-readable error code.
+          enum:
+            - VALIDATION_ERROR
+            - BUSINESS_RULE_VIOLATION
+            - INTERNAL_ERROR
+            - BET_NOT_FOUND
+            - RATE_LIMITED
+            - SETTLEMENT_CONFLICT
+            - TRANSIENT_FAILURE
+            - CONCURRENT_MODIFICATION
+            - DUPLICATE_RESOURCE
         message:
           type: string
+          description: Human-readable summary; not guaranteed stable across versions.
         fieldErrors:
           type: object
+          description: Field-level validation messages when applicable; otherwise empty object.
           additionalProperties:
             type: string
         timestamp:
@@ -452,4 +637,4 @@ components:
           format: date-time
         traceId:
           type: string
-          description: Request correlation id (from X-Request-Id or generated)
+          description: Request correlation id when available (may mirror `X-Request-Id`).

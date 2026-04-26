@@ -1,4 +1,4 @@
-package com.sonal.sportsbetting.service;
+package com.sonal.sportsbetting.unit.service;
 
 import com.sonal.sportsbetting.PropertyFixtures;
 import com.sonal.sportsbetting.config.PersistenceRetryConfiguration;
@@ -8,6 +8,9 @@ import com.sonal.sportsbetting.model.Bet;
 import com.sonal.sportsbetting.model.BetStatus;
 import com.sonal.sportsbetting.properties.BettingProperties;
 import com.sonal.sportsbetting.repository.BetRepository;
+import com.sonal.sportsbetting.service.DefaultBetPlacementService;
+import com.sonal.sportsbetting.service.ExposureService;
+import com.sonal.sportsbetting.service.OddsService;
 import com.sonal.sportsbetting.support.MoneyFormatting;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -101,5 +104,26 @@ class DefaultBetPlacementServiceTest {
         when(oddsService.getOdds("e1", "home")).thenReturn(Optional.empty());
 
         assertThrows(IllegalArgumentException.class, () -> service.placeBet(request));
+    }
+
+    @Test
+    void placeBetWithWhitespaceOnlyIdempotencyKeyBehavesLikeAbsentKey() {
+        PlaceBetRequest request = new PlaceBetRequest("u1", "e1", "home", new BigDecimal("10.00"));
+        when(oddsService.getOdds("e1", "home")).thenReturn(Optional.of(new BigDecimal("2.00")));
+        when(betRepository.save(any(Bet.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.placeBet(request, "   \t  ");
+
+        verify(betRepository, never()).findByUserIdAndIdempotencyKey(any(), any());
+        verify(oddsService).getOdds("e1", "home");
+        verify(betRepository).save(any(Bet.class));
+    }
+
+    @Test
+    void placeBetRejectsIdempotencyKeyLongerThanConfiguredMax() {
+        PlaceBetRequest request = new PlaceBetRequest("u1", "e1", "home", new BigDecimal("10.00"));
+        String tooLong = "x".repeat(129);
+        assertThrows(IllegalArgumentException.class, () -> service.placeBet(request, tooLong));
+        verify(betRepository, never()).save(any());
     }
 }

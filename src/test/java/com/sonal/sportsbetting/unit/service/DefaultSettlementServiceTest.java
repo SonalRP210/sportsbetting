@@ -1,4 +1,4 @@
-package com.sonal.sportsbetting.service;
+package com.sonal.sportsbetting.unit.service;
 
 import com.sonal.sportsbetting.PropertyFixtures;
 import com.sonal.sportsbetting.dto.SettleEventResponse;
@@ -8,6 +8,8 @@ import com.sonal.sportsbetting.model.BetStatus;
 import com.sonal.sportsbetting.model.EventSettlement;
 import com.sonal.sportsbetting.repository.BetRepository;
 import com.sonal.sportsbetting.repository.EventSettlementRepository;
+import com.sonal.sportsbetting.service.DefaultSettlementService;
+import com.sonal.sportsbetting.service.ExposureService;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

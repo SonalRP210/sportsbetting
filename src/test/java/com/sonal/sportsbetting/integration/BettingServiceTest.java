@@ -1,4 +1,4 @@
-package com.sonal.sportsbetting;
+package com.sonal.sportsbetting.integration;
 
 import com.sonal.sportsbetting.dto.CancelBetResponse;
 import com.sonal.sportsbetting.dto.PlaceBetRequest;

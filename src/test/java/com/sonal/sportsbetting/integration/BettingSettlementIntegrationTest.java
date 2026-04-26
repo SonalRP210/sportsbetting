@@ -1,10 +1,10 @@
-package com.sonal.sportsbetting;
+package com.sonal.sportsbetting.integration;
 
 import com.sonal.sportsbetting.dto.PlaceBetRequest;
 import com.sonal.sportsbetting.dto.SettleEventResponse;
+import com.sonal.sportsbetting.exception.SettlementConflictException;
 import com.sonal.sportsbetting.model.BetStatus;
 import com.sonal.sportsbetting.model.OddsUpdate;
-import com.sonal.sportsbetting.exception.SettlementConflictException;
 import com.sonal.sportsbetting.repository.BetRepository;
 import com.sonal.sportsbetting.repository.EventSettlementRepository;
 import com.sonal.sportsbetting.service.BettingService;

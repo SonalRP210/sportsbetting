@@ -1,10 +1,11 @@
-package com.sonal.sportsbetting.repository;
+package com.sonal.sportsbetting.integration.repository;
 
 import com.sonal.sportsbetting.model.Bet;
 import com.sonal.sportsbetting.model.BetStatus;
+import com.sonal.sportsbetting.repository.BetRepository;
+import com.sonal.sportsbetting.support.AbstractPostgresDataJpaTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import com.sonal.sportsbetting.support.AbstractPostgresDataJpaTest;
 
 import java.math.BigDecimal;
 import java.util.List;

@@ -24,6 +24,7 @@ Read code without editing first. Capture findings under these categories:
 
 ### Hooks in the current codebase
 
+- Tests live by layer: `unit/service` (Mockito), `integration/` (Testcontainers Postgres), `smoke/` (HTTP sanity), `controller/` (`@WebMvcTest`).
 - `DefaultBetPlacementService` — idempotency, `RetryTemplate` on `save`, exposure after persist
 - `DefaultSettlementService` — ledger, pessimistic lock query, conflict semantics
 - `GlobalExceptionHandler` — HTTP mapping for validation, rate limit, settlement conflict, transient, optimistic lock, data integrity

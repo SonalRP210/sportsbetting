@@ -1,10 +1,12 @@
-package com.sonal.sportsbetting.service;
+package com.sonal.sportsbetting.unit.service;
 
 import com.sonal.sportsbetting.PropertyFixtures;
 import com.sonal.sportsbetting.model.Bet;
 import com.sonal.sportsbetting.model.BetStatus;
 import com.sonal.sportsbetting.model.OddsUpdate;
 import com.sonal.sportsbetting.repository.BetRepository;
+import com.sonal.sportsbetting.service.DefaultExposureService;
+import com.sonal.sportsbetting.service.DefaultOddsService;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

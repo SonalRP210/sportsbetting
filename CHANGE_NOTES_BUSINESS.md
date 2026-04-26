@@ -44,19 +44,19 @@ We added `@EnableConfigurationProperties(RateLimitProperties.class)` in `SportsB
 
 - Converted `Bet` to a JPA entity.
 - Replaced in-memory repository with `JpaRepository`.
-- Added H2 datasource for runtime/testing setup.
+- **PostgreSQL** as the runtime database (configurable via `SPRING_DATASOURCE_*`), with **`compose.yml`** for local Postgres and **Testcontainers** for DB-backed tests.
 
 ### Why this was needed
 
 - In-memory state loses all bets on restart.
 - No durable source of truth for settlement and audit.
-- In-memory data model is not production-like and weak for compliance discussions.
+- A production-like RDBMS is required for realistic persistence, locking, and compliance discussions.
 
 ### Business value
 
 - Durable and queryable data model.
 - Better foundation for auditability and regulatory requirements.
-- Easier move to production databases with minimal code changes.
+- Same engine locally, in tests (via containers), and in production-style deployments.
 
 ## Rate limiting
 

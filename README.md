@@ -63,6 +63,7 @@ Operational and domain defaults live under `app.*` (no magic numbers in services
 
 | File | Purpose |
 |------|---------|
+| `openapi.yaml` | **Static OpenAPI 3 contract** for other teams (kept aligned with controllers and error handling). Runtime spec also served at `/v3/api-docs`. |
 | `PRACTICE_GUIDE.md` | Mock interview rounds and prompts |
 | `CHANGE_NOTES_BUSINESS.md` | Why major changes were made (business / risk framing) |
 
@@ -75,13 +76,27 @@ docker compose up -d
 mvn spring-boot:run
 ```
 
-Tests spin up their own Postgres with **Testcontainers** (Docker required for DB-backed tests; those tests are skipped if Docker is unavailable). `docker compose` here is only for **local** service dependencies, not for the test runner itself.
+DB-backed tests use **Testcontainers** with **one Postgres per JVM** (avoids Spring context reuse vs. per-class container teardown). Those tests are **skipped** when Docker is unavailable (`@EnabledIf`). `docker compose` here is only for **local** service dependencies when you run the app.
 
 ```bash
 mvn test
 ```
 
 Swagger UI (when app is running): **`/swagger-ui.html`** (see `application.yaml` for `springdoc` paths).
+
+## Testing strategy (pyramid, smoke, Testcontainers)
+
+**Smoke test** — A *very small* set of checks that answer: “Is the deployed or locally built service basically alive?” Typical smoke calls hit health, one read path, and sometimes one write path. They are **not** a substitute for deeper tests; they catch wiring, routing, and catastrophic config failures fast.
+
+**Test pyramid (how to think about this repo, not a rigid formula)**  
+- **Wide base — unit tests** under `src/test/java/.../unit/` (`unit.service`, `unit.support`): Mockito + no Testcontainers; most business rules and edge cases.  
+- **Middle — integration tests** under `src/test/java/.../integration/`: Spring + **Testcontainers Postgres** (`AbstractPostgresSpringBootTest` / `AbstractPostgresDataJpaTest`), real JPA and service wiring.  
+- **Narrow top — smoke tests** in `smoke/`: a couple of HTTP calls on the full stack (`ApplicationSmokeTest`).  
+- **Controller slices** stay in `controller/` (`@WebMvcTest`); **filters/config** in `config/`.
+
+Percentages vary by team and module; the goal is **many fast unit tests**, **some realistic integration tests**, and **very few smoke checks** so you still trust the system when containers are green.
+
+Run only smoke: `mvn -q -Dtest=com.sonal.sportsbetting.smoke.ApplicationSmokeTest test` (Docker required like other DB-backed tests).
 
 ## Example interview prompts
 

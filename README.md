@@ -8,7 +8,7 @@ The repo started as an intentionally rough scaffold; it has since been **partial
 
 - Java 21, Spring Boot 3.3
 - Spring Web, Validation, Data JPA, Actuator (metrics/Prometheus)
-- H2 (in-memory) for local run and tests
+- PostgreSQL (see `compose.yml`; tests use Testcontainers Postgres)
 - OpenAPI / Swagger UI (`springdoc-openapi`)
 - Spring Retry (`RetryTemplate`) for transient persistence failures
 
@@ -68,8 +68,16 @@ Operational and domain defaults live under `app.*` (no magic numbers in services
 
 ## Run and test
 
+Start Postgres (defaults match `application.yaml`), then run the app:
+
 ```bash
+docker compose up -d
 mvn spring-boot:run
+```
+
+Tests spin up their own Postgres with **Testcontainers** (Docker required for DB-backed tests; those tests are skipped if Docker is unavailable). `docker compose` here is only for **local** service dependencies, not for the test runner itself.
+
+```bash
 mvn test
 ```
 

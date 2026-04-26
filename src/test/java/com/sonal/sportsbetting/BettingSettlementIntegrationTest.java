@@ -8,10 +8,10 @@ import com.sonal.sportsbetting.exception.SettlementConflictException;
 import com.sonal.sportsbetting.repository.BetRepository;
 import com.sonal.sportsbetting.repository.EventSettlementRepository;
 import com.sonal.sportsbetting.service.BettingService;
+import com.sonal.sportsbetting.support.AbstractPostgresSpringBootTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -20,8 +20,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-@SpringBootTest
-class BettingSettlementIntegrationTest {
+class BettingSettlementIntegrationTest extends AbstractPostgresSpringBootTest {
 
     @Autowired
     private BettingService bettingService;

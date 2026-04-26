@@ -6,11 +6,7 @@ api:
 spring:
   application:
     name: sportsbetting
-  datasource:
-    url: jdbc:h2:mem:sportsbetting-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    driver-class-name: org.h2.Driver
-    username: sa
-    password:
+  # DB-backed tests use Testcontainers Postgres via @DynamicPropertySource (PostgresContainerProvider).
   jpa:
     hibernate:
       ddl-auto: create-drop

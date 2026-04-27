@@ -9,7 +9,7 @@ The repo started as an intentionally rough scaffold; it has since been **partial
 - Java 21, Spring Boot 3.3
 - Spring Web, Validation, Data JPA, Actuator (metrics/Prometheus)
 - PostgreSQL (see `compose.yml`; tests use Testcontainers Postgres)
-- OpenAPI / Swagger UI (`springdoc-openapi`)
+- OpenAPI JSON (`springdoc-openapi` **API** starter — `/v3/api-docs` only; no Swagger UI)
 - Spring Retry (`RetryTemplate`) for transient persistence failures
 
 ## API base path
@@ -82,7 +82,7 @@ DB-backed tests use **Testcontainers** with **one Postgres per JVM** (avoids Spr
 mvn test
 ```
 
-Swagger UI (when app is running): **`/swagger-ui.html`** (see `application.yaml` for `springdoc` paths).
+OpenAPI when the app is running: **`/v3/api-docs`** (JSON for tooling and other services). The static contract file is `openapi.yaml`.
 
 ## Testing strategy (pyramid, smoke, Testcontainers)
 

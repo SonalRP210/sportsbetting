@@ -7,6 +7,7 @@ import com.sonal.sportsbetting.model.OddsUpdate;
 import com.sonal.sportsbetting.repository.BetRepository;
 import com.sonal.sportsbetting.service.DefaultExposureService;
 import com.sonal.sportsbetting.service.DefaultOddsService;
+import com.sonal.sportsbetting.service.NoOpOddsUpdateBroadcaster;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,7 +39,8 @@ class DefaultExposureAndOddsServiceTest {
         oddsService = new DefaultOddsService(
                 new SimpleMeterRegistry(),
                 PropertyFixtures.moneyFormatting(),
-                PropertyFixtures.odds());
+                PropertyFixtures.odds(),
+                new NoOpOddsUpdateBroadcaster());
     }
 
     @Test
@@ -46,6 +48,7 @@ class DefaultExposureAndOddsServiceTest {
         exposureService.increaseExposure(new BigDecimal("12.25"));
         exposureService.decreaseExposure(new BigDecimal("2.25"));
         exposureService.decreaseExposure(new BigDecimal("50.00"));
+        when(betRepository.sumExposureByStatus(BetStatus.OPEN)).thenReturn(BigDecimal.ZERO);
 
         assertEquals(0, exposureService.getTotalExposure().compareTo(BigDecimal.ZERO));
     }

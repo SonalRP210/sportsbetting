@@ -7,16 +7,30 @@ It has two purposes:
 1. Capture the current architecture as-is.
 2. Record each scalability evolution step in the same file as we implement it.
 
+**How to read this file:** the **baseline** section below is the **full pre–Phase 1** record (kept for history). **Phase 1** is documented as **additions and deltas** on top of that baseline; it does not delete the baseline narrative.
+
 We will update this document incrementally after each change so architecture and code stay aligned.
 
-## Current Architecture (Baseline)
+---
+
+## Diagram (current — after Phase 1)
+
+Sports Betting — Phase 1 architecture
+
+*Figure: clients hit a load balancer; multiple Spring Boot instances share **Redis** (global rate-limit counters + odds pub/sub) and **PostgreSQL** (durable domain data + exposure aggregate). Each instance keeps a **local odds cache** for fast reads.*
+
+---
+
+## Baseline architecture (pre–Phase 1, full record — not removed)
+
+This section is the original “current as-built” description **before** Redis, pub/sub odds fan-out, and DB-backed total exposure. It remains here unchanged in spirit so you can diff mentally against Phase 1.
 
 ### Runtime model
 
 - Spring Boot (Spring MVC, blocking request/response).
 - Request-level concurrency is provided by the servlet container thread pool.
 - Business services are synchronous and transaction-based (`@Transactional`).
-- No explicit async pipelines (`@Async`, `CompletableFuture`, schedulers, reactive streams) in the current implementation.
+- No explicit async pipelines (`@Async`, `CompletableFuture`, schedulers, reactive streams) in the baseline implementation.
 
 ### Core components and responsibilities
 
@@ -51,7 +65,7 @@ We will update this document incrementally after each change so architecture and
 - **Transient retry**
   - `RetryTemplate` retries transient persistence exceptions with fixed backoff.
 
-### Current scaling characteristics
+### Baseline scaling characteristics
 
 - Strong correctness for core write flows (bet idempotency, settlement serialization) because safety is DB-backed.
 - In-memory components are node-local and therefore not globally consistent in multi-instance deployments:
@@ -59,40 +73,101 @@ We will update this document incrementally after each change so architecture and
   - rate-limit counters
   - exposure accumulator
 
-### Known architectural limits
+### Baseline known architectural limits
 
 - Global rate limiting is not enforced across instances.
 - Odds can diverge between instances.
 - Total exposure is not durable and not globally authoritative.
 
-## Target Scalable Architecture (North Star)
+---
 
-- Shared/global rate limiting (Redis-backed token/sliding window).
-- Shared odds distribution (pub/sub or Kafka + local cache convergence).
-- Durable authoritative exposure source (projection/table or aggregate query model).
-- Optional event-driven backbone via outbox + domain events.
+## Phase 1 — additions and deltas (implemented on top of baseline)
 
-## Evolution Plan (Phased)
+Phase 1 **does not remove** the baseline behaviors above for DB-backed bets/settlement; it **extends** cross-node coordination and one read path as follows.
 
-### Phase 1 (minimal-change hardening)
+### Runtime model (unchanged from baseline)
 
-1. Externalize rate limiting to Redis.
-2. Make exposure reads authoritative from shared durable state.
-3. Synchronize odds state across instances through shared channel/store.
+- Still Spring MVC, synchronous services, servlet thread pool concurrency.
+
+### Core components — what changed or was added
+
+- `RateLimitingFilter` **+** `RateLimiterGateway`
+  - Filter contract unchanged; counting delegated to a gateway.
+  - `RedisRateLimiterGateway` (when `app.redis.enabled=true`): Lua `INCR` + `EXPIRE` on a shared Redis key per client+URI — **global** rate limit across instances.
+  - `InMemoryRateLimiterGateway` (when Redis disabled): per-JVM sliding window — same class of behavior as baseline filter; **not** global under multi-instance.
+- `DefaultOddsService`
+  - Still keeps latest odds in a per-instance `ConcurrentHashMap`.
+  - **Added:** on feed ingest, after local update, `OddsUpdateBroadcaster` publishes to Redis pub/sub (`app.redis.odds-channel`) when Redis is enabled so peer instances converge.
+  - `NoOpOddsUpdateBroadcaster`**:** when Redis is off, no cross-node fan-out; **DEBUG** log explains instance-local only behavior.
+- `DefaultBetPlacementService` **/** `DefaultSettlementService`
+  - Unchanged in role from baseline (still DB-centric idempotency and locking).
+- `DefaultExposureService`
+  - **Changed read path:** `getTotalExposure()` uses PostgreSQL aggregate `sum(stake * odds)` for `OPEN` bets via `BetRepository.sumExposureByStatus`, normalizes, refreshes the in-process gauge.
+  - **Still present:** `increaseExposure` / `decreaseExposure` update local `AtomicReference` between DB-backed reads (gauge behavior).
+
+### Configuration added (`app.redis`)
+
+
+| Property                          | Role                                                                        |
+| --------------------------------- | --------------------------------------------------------------------------- |
+| `app.redis.enabled`               | Toggle Redis-backed rate limit + odds pub/sub vs in-memory / no-op fan-out. |
+| `app.redis.rate-limit-key-prefix` | Namespace for Redis rate-limit keys (e.g. `rate_limit:`).                   |
+| `app.redis.odds-channel`          | Redis pub/sub channel for odds update messages.                             |
+
+
+Connection: `spring.data.redis.host` / `port` (see `application-local.yaml`, `application-cloud.yaml`).
+
+### Data consistency (baseline items still apply)
+
+All baseline bullets under *Data consistency and concurrency controls* remain true. Phase 1 adds **cross-node** rate limit and odds **fan-out**, and a **DB-backed** total exposure **read**.
+
+### Phase 1 checklist (coverage)
+
+
+| Goal                         | Status | Notes                                                        |
+| ---------------------------- | ------ | ------------------------------------------------------------ |
+| Global rate limiting         | Done   | Redis Lua counter + TTL; in-memory fallback when Redis off.  |
+| Cross-node odds convergence  | Done   | Pub/sub + local map; not yet a durable canonical odds store. |
+| Authoritative total exposure | Done   | DB aggregate for `OPEN` on `getTotalExposure()`.             |
+
+
+### Remaining limits after Phase 1
+
+- Odds “latest” is still primarily **in-memory per instance**; pub/sub alone does not give a cold joiner full history without a **durable odds store** (Redis Hash / DB) + warm load.
+- Redis memory, eviction, and HA are operational concerns.
+- If callers read only the in-memory gauge without `getTotalExposure()`, exposure can diverge briefly from DB truth.
+
+---
+
+## Target scalable architecture (north star)
+
+- Durable canonical odds (Redis Hash or DB) + pub/sub or log for notifications.
+- Optional event-driven backbone (outbox + domain events).
+- Exposure projection table if event-sourced accounting is required.
+
+## Evolution plan (phased)
+
+### Phase 1 (minimal-change hardening) — **implemented**
+
+1. Externalize rate limiting to Redis (with in-memory fallback).
+2. Authoritative total exposure from DB aggregate on read.
+3. Synchronize odds across instances via Redis pub/sub + local cache.
 
 ### Phase 2 (consistency + boundaries)
 
-1. Introduce domain events (`BetPlaced`, `EventSettled`, `OddsUpdated`) with outbox pattern.
-2. Build exposure projection as read model.
-3. Move toward explicit write/read model boundaries.
+1. Domain events (`BetPlaced`, `EventSettled`, `OddsUpdated`) with outbox pattern.
+2. Exposure projection as read model.
+3. Explicit write/read model boundaries.
 
 ### Phase 3 (throughput + operations)
 
-1. Add lock/settlement contention observability and tuning.
-2. Add backpressure/resilience for feed bursts.
-3. Tune retries/timeouts under load and failure scenarios.
+1. Lock/settlement contention observability and tuning.
+2. Backpressure/resilience for feed bursts.
+3. Retries/timeouts under load and failure scenarios.
 
-## Change Log (append-only)
+---
+
+## Change log (append-only)
 
 Use this section to record what changed, when, and why. Each entry should include:
 
@@ -103,7 +178,7 @@ Use this section to record what changed, when, and why. Each entry should includ
 - Risks/trade-offs
 - Validation performed
 
-### Entry Template
+### Entry template
 
 ```text
 Date: YYYY-MM-DD
@@ -127,5 +202,32 @@ Validation:
 
 ### Entries
 
-- 2026-04-27: Baseline captured in this file (no runtime behavior change).
+- **2026-04-27**: Baseline captured in this file (no runtime behavior change).
+- **2026-04-27 — Phase 1 implemented**
+  - **Summary**
+    - Pluggable rate limiting: **Redis** (global counters) vs **in-memory** fallback.
+    - **Redis pub/sub** for odds updates so all instances refresh local `ConcurrentHashMap`.
+    - **Total exposure** from DB `sum(stake * odds)` for `OPEN` bets on `getTotalExposure()`.
+    - Architecture diagram added under `docs/architecture-current-phase1.jpeg`.
+  - **Documentation**
+    - Restructured `ARCHITECTURE_EVOLUTION.md` so the **full baseline** is preserved under *Baseline architecture* and Phase 1 is documented as **deltas**, not a replacement of baseline history.
+  - **Files (representative)**
+    - `pom.xml` — `spring-boot-starter-data-redis`
+    - `RateLimitingFilter`, `RateLimiterGateway`, `InMemoryRateLimiterGateway`, `RedisRateLimiterGateway`
+    - `RedisOddsBroadcastConfiguration`, `OddsUpdateBroadcaster`, `NoOpOddsUpdateBroadcaster`, `DefaultOddsService`
+    - `BetRepository.sumExposureByStatus`, `DefaultExposureService`
+    - `RedisProperties`, `application.yaml`, `application-local.yaml`, `application-cloud.yaml`
+    - Tests: `InMemoryRateLimiterGatewayTest`, `RedisRateLimiterGatewayTest`, `BetRepositoryTest` (aggregate), `NoOpOddsUpdateBroadcasterTest`, updates to `RateLimitingFilterTest`, `DefaultExposureAndOddsServiceTest`, `WebMvcFilterTestSupport` + controller `@Import` updates
+    - `docs/architecture-current-phase1.jpeg`
+    - `ARCHITECTURE_EVOLUTION.md` (this file)
+  - **Architecture impact**
+    - Multi-instance deployments can enforce **one global rate limit bucket** per client key when Redis is enabled.
+    - Odds propagate to **all nodes** without each read hitting Redis.
+    - Reported **total exposure** aligns with persisted open bets across restarts and nodes (for code paths that call `getTotalExposure()`).
+  - **Risks / trade-offs**
+    - New runtime dependency: **Redis** when `app.redis.enabled=true`.
+    - Odds still not a **durable shared document**; cold start / missed messages need a follow-up (Hash/DB + warm load).
+  - **Validation**
+    - `mvn test` (full suite, exit code 0; Docker-backed tests require Docker where enabled).
+    - `@WebMvcTest` slices import `WebMvcFilterTestSupport` so `RateLimitingFilter` receives a `RateLimiterGateway` bean (slice contexts do not component-scan gateway implementations).
 

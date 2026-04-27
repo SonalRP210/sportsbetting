@@ -21,22 +21,25 @@ public class DefaultOddsService implements OddsService {
     private final MeterRegistry meterRegistry;
     private final MoneyFormatting moneyFormatting;
     private final OddsProperties oddsProperties;
+    private final OddsUpdateBroadcaster oddsUpdateBroadcaster;
     private final Map<String, BigDecimal> latestOdds = new ConcurrentHashMap<>();
 
     public DefaultOddsService(
             MeterRegistry meterRegistry,
             MoneyFormatting moneyFormatting,
-            OddsProperties oddsProperties) {
+            OddsProperties oddsProperties,
+            OddsUpdateBroadcaster oddsUpdateBroadcaster) {
         this.meterRegistry = meterRegistry;
         this.moneyFormatting = moneyFormatting;
         this.oddsProperties = oddsProperties;
+        this.oddsUpdateBroadcaster = oddsUpdateBroadcaster;
     }
 
     @Override
     public void consumeOddsFeed(List<OddsUpdate> feedEvents) {
         for (OddsUpdate update : feedEvents) {
-            String key = buildOddsKey(update.getEventId(), update.getSelection());
-            latestOdds.put(key, moneyFormatting.normalize(update.getOdds()));
+            applyBroadcastUpdate(update);
+            oddsUpdateBroadcaster.broadcast(update);
             meterRegistry.counter("odds.feed.events.processed").increment();
         }
         log.info("Processed odds feed batch size={}", feedEvents.size());
@@ -45,6 +48,11 @@ public class DefaultOddsService implements OddsService {
     @Override
     public Optional<BigDecimal> getOdds(String eventId, String selection) {
         return Optional.ofNullable(latestOdds.get(buildOddsKey(eventId, selection)));
+    }
+
+    public void applyBroadcastUpdate(OddsUpdate update) {
+        String key = buildOddsKey(update.getEventId(), update.getSelection());
+        latestOdds.put(key, moneyFormatting.normalize(update.getOdds()));
     }
 
     private String buildOddsKey(String eventId, String selection) {

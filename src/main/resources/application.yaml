@@ -31,6 +31,10 @@ api:
   base-path: /api/${api.version}
 
 app:
+  redis:
+    enabled: false
+    rate-limit-key-prefix: "rate_limit:"
+    odds-channel: "odds:updates"
   rate-limit:
     requests: 120
     window-seconds: 60
@@ -67,5 +71,3 @@ management:
 springdoc:
   api-docs:
     path: /v3/api-docs
-  swagger-ui:
-    path: /swagger-ui.html

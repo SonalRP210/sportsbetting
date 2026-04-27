@@ -2,6 +2,11 @@ spring:
   config:
     activate:
       on-profile: cloud
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:}
 
   datasource:
     url: ${SPRING_DATASOURCE_URL}
@@ -22,3 +27,7 @@ server:
 logging:
   level:
     com.sonal.sportsbetting: INFO
+
+app:
+  redis:
+    enabled: ${APP_REDIS_ENABLED:true}

@@ -40,7 +40,9 @@ public class DefaultExposureService implements ExposureService {
 
     @Override
     public BigDecimal getTotalExposure() {
-        return totalExposure.get();
+        BigDecimal persistedExposure = moneyFormatting.normalize(betRepository.sumExposureByStatus(BetStatus.OPEN));
+        totalExposure.set(persistedExposure);
+        return persistedExposure;
     }
 
     @Override

@@ -9,40 +9,29 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.time.Instant;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
 public class RateLimitingFilter extends OncePerRequestFilter {
     private final RateLimitProperties properties;
-    private final ConcurrentHashMap<String, ClientWindow> windows = new ConcurrentHashMap<>();
+    private final RateLimiterGateway rateLimiterGateway;
 
-    public RateLimitingFilter(RateLimitProperties properties) {
+    public RateLimitingFilter(RateLimitProperties properties, RateLimiterGateway rateLimiterGateway) {
         this.properties = properties;
+        this.rateLimiterGateway = rateLimiterGateway;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         String clientKey = request.getRemoteAddr() + ":" + request.getRequestURI();
-        long nowEpochSecond = Instant.now().getEpochSecond();
-
-        ClientWindow window = windows.compute(clientKey, (key, existing) -> {
-            if (existing == null || nowEpochSecond - existing.windowStartEpochSecond() >= properties.getWindowSeconds()) {
-                return new ClientWindow(nowEpochSecond, new AtomicInteger(1));
-            }
-            existing.counter().incrementAndGet();
-            return existing;
-        });
-
-        if (window.counter().get() > properties.getRequests()) {
+        boolean accepted = rateLimiterGateway.tryConsume(
+                clientKey,
+                properties.getWindowSeconds(),
+                properties.getRequests());
+        if (!accepted) {
             throw new RateLimitExceededException("Too many requests. Please retry later.");
         }
 
         filterChain.doFilter(request, response);
-    }
-
-    private record ClientWindow(long windowStartEpochSecond, AtomicInteger counter) {
     }
 }

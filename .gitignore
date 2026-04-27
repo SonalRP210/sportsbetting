@@ -29,3 +29,29 @@ target/
 # IDE files
 .idea/
 *.iml
+
+# VS Code
+.vscode/
+
+# Eclipse / STS
+.classpath
+.project
+.settings/
+.factorypath
+
+# NetBeans
+nbproject/private/
+build/
+nbbuild/
+dist/
+nbdist/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local env / temp
+.env
+.env.*
+*.tmp
+*.swp

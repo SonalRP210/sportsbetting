@@ -12,6 +12,9 @@ public class WebMvcFilterTestSupport {
 
     @Bean
     public RateLimiterGateway rateLimiterGateway() {
-        return new InMemoryRateLimiterGateway();
+        RateLimitProperties properties = new RateLimitProperties();
+        properties.setRequests(1000);
+        properties.setWindowSeconds(60);
+        return new InMemoryRateLimiterGateway(properties);
     }
 }

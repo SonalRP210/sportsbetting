@@ -13,6 +13,8 @@ import com.sonal.sportsbetting.repository.EventSettlementRepository;
 import com.sonal.sportsbetting.service.DefaultSettlementService;
 import com.sonal.sportsbetting.service.ExposureService;
 import com.sonal.sportsbetting.service.outbox.DomainEventPublisher;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.search.Search;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -48,16 +51,20 @@ class DefaultSettlementServiceTest {
     @Mock
     private DomainEventPublisher domainEventPublisher;
 
+    private SimpleMeterRegistry meterRegistry;
     private DefaultSettlementService service;
 
     @BeforeEach
     void setUp() {
+        meterRegistry = new SimpleMeterRegistry();
         service = new DefaultSettlementService(
                 betRepository,
                 eventSettlementRepository,
                 exposureService,
                 domainEventPublisher,
-                new SimpleMeterRegistry(),
+                PropertyFixtures.settlementRetry(),
+                PropertyFixtures.settlement(),
+                meterRegistry,
                 PropertyFixtures.moneyFormatting());
     }
 
@@ -104,5 +111,16 @@ class DefaultSettlementServiceTest {
         when(eventSettlementRepository.findById("evt")).thenReturn(Optional.of(ledger));
 
         assertThrows(SettlementConflictException.class, () -> service.settleEvent("evt", "away"));
+    }
+
+    @Test
+    void settleEventLockFailureIncrementsMetricAndThrows() {
+        when(eventSettlementRepository.findById("evt")).thenReturn(Optional.empty());
+        doThrow(new org.springframework.dao.PessimisticLockingFailureException("lock"))
+                .when(betRepository).findByEventIdAndStatusForUpdate("evt", BetStatus.OPEN);
+
+        assertThrows(IllegalStateException.class, () -> service.settleEvent("evt", "home"));
+        Counter failures = Search.in(meterRegistry).name("events.settlement.lock.failures").counter();
+        assertEquals(1.0, failures.count());
     }
 }

@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
@@ -36,16 +37,25 @@ public class DomainEventPublisher {
             outboxRepository.saveAndFlush(row);
             long id = row.getId();
             if (TransactionSynchronizationManager.isSynchronizationActive()) {
-                outboxDispatcher.processInCurrentTransaction(id);
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        dispatchSafely(id);
+                    }
+                });
             } else {
-                try {
-                    outboxDispatcher.processById(id);
-                } catch (Exception ex) {
-                    log.warn("Outbox dispatch failed for id={}, will rely on poller", id, ex);
-                }
+                dispatchSafely(id);
             }
         } catch (JsonProcessingException ex) {
             throw new IllegalStateException("Failed to serialize domain event " + type, ex);
+        }
+    }
+
+    private void dispatchSafely(long id) {
+        try {
+            outboxDispatcher.processById(id);
+        } catch (Exception ex) {
+            log.warn("Outbox dispatch failed for id={}, will rely on poller", id, ex);
         }
     }
 }

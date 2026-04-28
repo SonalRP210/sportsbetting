@@ -24,16 +24,23 @@ public class RedisRateLimiterGateway implements RateLimiterGateway {
 
     private final StringRedisTemplate redisTemplate;
     private final RedisProperties redisProperties;
+    private final RateLimitProperties rateLimitProperties;
     private final DefaultRedisScript<Long> rateLimitScript;
 
-    public RedisRateLimiterGateway(StringRedisTemplate redisTemplate, RedisProperties redisProperties) {
+    public RedisRateLimiterGateway(
+            StringRedisTemplate redisTemplate,
+            RedisProperties redisProperties,
+            RateLimitProperties rateLimitProperties) {
         this.redisTemplate = redisTemplate;
         this.redisProperties = redisProperties;
+        this.rateLimitProperties = rateLimitProperties;
         this.rateLimitScript = new DefaultRedisScript<>(LUA, Long.class);
     }
 
     @Override
-    public boolean tryConsume(String clientKey, long windowSeconds, int maxRequests) {
+    public boolean tryConsume(String clientKey) {
+        long windowSeconds = rateLimitProperties.getWindowSeconds();
+        int maxRequests = rateLimitProperties.getRequests();
         String key = redisProperties.rateLimitKeyPrefix() + clientKey;
         Long result = redisTemplate.execute(
                 rateLimitScript,

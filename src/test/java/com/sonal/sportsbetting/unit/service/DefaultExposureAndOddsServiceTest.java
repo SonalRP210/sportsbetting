@@ -10,7 +10,7 @@ import com.sonal.sportsbetting.repository.ExposureProjectionRepository;
 import com.sonal.sportsbetting.repository.LatestOddsRepository;
 import com.sonal.sportsbetting.service.DefaultExposureService;
 import com.sonal.sportsbetting.service.DefaultOddsService;
-import com.sonal.sportsbetting.service.NoOpOddsUpdateBroadcaster;
+import com.sonal.sportsbetting.service.OddsCacheUpdater;
 import com.sonal.sportsbetting.service.outbox.DomainEventPublisher;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +41,7 @@ class DefaultExposureAndOddsServiceTest {
     @Mock
     private DomainEventPublisher domainEventPublisher;
 
+    private OddsCacheUpdater oddsCacheUpdater;
     private DefaultExposureService exposureService;
     private DefaultOddsService oddsService;
 
@@ -50,13 +51,13 @@ class DefaultExposureAndOddsServiceTest {
                 exposureProjectionRepository,
                 PropertyFixtures.moneyFormatting(),
                 new SimpleMeterRegistry());
+        oddsCacheUpdater = new OddsCacheUpdater(PropertyFixtures.odds(), PropertyFixtures.moneyFormatting());
         oddsService = new DefaultOddsService(
                 new SimpleMeterRegistry(),
                 PropertyFixtures.moneyFormatting(),
-                PropertyFixtures.odds(),
-                new NoOpOddsUpdateBroadcaster(),
                 latestOddsRepository,
-                domainEventPublisher);
+                domainEventPublisher,
+                oddsCacheUpdater);
     }
 
     @Test

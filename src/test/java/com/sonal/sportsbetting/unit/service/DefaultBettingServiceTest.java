@@ -12,7 +12,7 @@ import com.sonal.sportsbetting.service.BetPlacementService;
 import com.sonal.sportsbetting.service.BetQueryService;
 import com.sonal.sportsbetting.service.DefaultBettingService;
 import com.sonal.sportsbetting.service.ExposureService;
-import com.sonal.sportsbetting.service.OddsService;
+import com.sonal.sportsbetting.service.OddsFeedPublisher;
 import com.sonal.sportsbetting.service.SettlementService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,7 +33,7 @@ class DefaultBettingServiceTest {
     @Mock
     private BetPlacementService betPlacementService;
     @Mock
-    private OddsService oddsService;
+    private OddsFeedPublisher oddsFeedPublisher;
     @Mock
     private SettlementService settlementService;
     @Mock
@@ -47,7 +47,7 @@ class DefaultBettingServiceTest {
     void setUp() {
         facade = new DefaultBettingService(
                 betPlacementService,
-                oddsService,
+                oddsFeedPublisher,
                 settlementService,
                 betQueryService,
                 exposureService);
@@ -66,7 +66,7 @@ class DefaultBettingServiceTest {
     void consumeOddsFeedDelegates() {
         List<OddsUpdate> feed = List.of(new OddsUpdate());
         facade.consumeOddsFeed(feed);
-        verify(oddsService).consumeOddsFeed(feed);
+        verify(oddsFeedPublisher).publish(feed);
     }
 
     @Test

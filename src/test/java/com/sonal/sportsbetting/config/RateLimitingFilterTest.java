@@ -16,7 +16,7 @@ class RateLimitingFilterTest {
         RateLimitProperties properties = new RateLimitProperties();
         properties.setRequests(1);
         properties.setWindowSeconds(60);
-        RateLimitingFilter filter = new RateLimitingFilter(properties, new InMemoryRateLimiterGateway());
+        RateLimitingFilter filter = new RateLimitingFilter(new InMemoryRateLimiterGateway(properties));
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/bets");
         request.setRemoteAddr("127.0.0.1");

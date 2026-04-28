@@ -11,9 +11,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 @ConditionalOnProperty(prefix = "app.redis", name = "enabled", havingValue = "false", matchIfMissing = true)
 public class InMemoryRateLimiterGateway implements RateLimiterGateway {
     private final ConcurrentHashMap<String, ClientWindow> windows = new ConcurrentHashMap<>();
+    private final RateLimitProperties rateLimitProperties;
+
+    public InMemoryRateLimiterGateway(RateLimitProperties rateLimitProperties) {
+        this.rateLimitProperties = rateLimitProperties;
+    }
 
     @Override
-    public boolean tryConsume(String clientKey, long windowSeconds, int maxRequests) {
+    public boolean tryConsume(String clientKey) {
+        long windowSeconds = rateLimitProperties.getWindowSeconds();
+        int maxRequests = rateLimitProperties.getRequests();
         long nowEpochSecond = Instant.now().getEpochSecond();
         ClientWindow window = windows.compute(clientKey, (key, existing) -> {
             if (existing == null || nowEpochSecond - existing.windowStartEpochSecond() >= windowSeconds) {

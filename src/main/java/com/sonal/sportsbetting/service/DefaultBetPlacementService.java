@@ -87,6 +87,7 @@ public class DefaultBetPlacementService implements BetPlacementService {
         try {
             persistenceRetryTemplate.execute(context -> betRepository.save(bet));
         } catch (DataIntegrityViolationException ex) {
+            meterRegistry.counter("bets.placed.idempotency.constraint_violations").increment();
             if (normalizedKey == null) {
                 throw ex;
             }

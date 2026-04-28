@@ -177,11 +177,43 @@ All baseline bullets under *Data consistency and concurrency controls* remain tr
   - Placement/cancel/settlement flows now publish events; direct exposure increment/decrement APIs were removed from `ExposureService`.
   - Query paths read from projection/canonical stores.
 
-### Phase 3 (throughput + operations)
+### Phase 3 (throughput + operations) — **implemented**
 
 1. Lock/settlement contention observability and tuning.
 2. Backpressure/resilience for feed bursts.
 3. Retries/timeouts under load and failure scenarios.
+
+#### Phase 3 implementation notes
+
+- **Settlement contention strategy**
+  - Kept pessimistic locking and added lock timeout hint on settlement lock query (`jakarta.persistence.lock.timeout`).
+  - Added settlement lock retry policy (`SettlementRetryConfiguration`) with focused retry classes for lock contention.
+  - Added metrics for contention and throughput:
+    - `events.settlement.lock.wait` (timer)
+    - `events.settlement.lock.failures` (counter)
+    - `events.settled.duration` (timer)
+    - `events.settled.conflicts` (counter)
+- **Idempotency observability**
+  - Preserved replay counters and added explicit constraint violation signal:
+    - `bets.placed.idempotent_replay`
+    - `bets.placed.idempotent_replay_after_race`
+    - `bets.placed.idempotency.constraint_violations`
+- **Backpressure path for odds bursts**
+  - Added Kafka support as optional buffering path for odds ingestion:
+    - `OddsFeedPublisher` abstraction
+    - `DirectOddsFeedPublisher` (default direct path)
+    - `KafkaOddsFeedPublisher` + `KafkaOddsFeedConsumer` (buffered path)
+  - `DefaultBettingService.consumeOddsFeed(...)` now delegates through publisher abstraction.
+- **Class-level refactors**
+  - Rate-limiter boundary simplified to `RateLimiterGateway.tryConsume(clientKey)` with policy owned by gateway implementations.
+  - `DefaultOddsService` split via collaborators:
+    - `OddsPublisher` (`DefaultOddsPublisher`) for outbound fan-out
+    - `OddsCacheUpdater` for inbound synchronization and cache updates
+  - `DefaultExposureService` remains projection-backed with gauge as derived telemetry cache.
+  - Outbox emission remains the source for post-commit side effects.
+- **Configuration additions**
+  - Added `app.retry.settlement.`*, `app.settlement.lock-timeout-ms`, and `app.kafka.*` properties.
+  - Added Spring Kafka wiring and serializers in `application.yaml` plus `KafkaConfiguration`.
 
 ---
 
@@ -256,7 +288,7 @@ Validation:
     - Removed in-process exposure mutation boundary (`increaseExposure`/`decreaseExposure`) from service contract.
   - **Files (representative)**
     - Domain events: `domain/event/`*
-    - Outbox: `DomainEventOutbox`, `DomainEventOutboxRepository`, `service/outbox/*`, `SchedulingConfiguration`
+    - Outbox: `DomainEventOutbox`, `DomainEventOutboxRepository`, `service/outbox/`*, `SchedulingConfiguration`
     - Projection: `ExposureProjection`, `ExposureProjectionKey`, `ExposureProjectionRepository`, `ExposureProjectionUpdater`, `ExposureProjectionStartupInitializer`
     - Canonical odds: `LatestOdds`, `LatestOddsId`, `LatestOddsRepository`, `DefaultOddsService`
     - Service wiring: `DefaultBetPlacementService`, `DefaultBetQueryService`, `DefaultSettlementService`, `ExposureService`, `DefaultExposureService`, `BetRepository`
@@ -272,4 +304,27 @@ Validation:
   - **Validation**
     - `mvn test -Dtest=BettingServiceTest,BettingSettlementIntegrationTest,BetIdempotencyIntegrationTest` (exit code 0).
     - Updated unit tests for placement/cancel/settlement/exposure/odds boundaries (event publication + projection-based reads).
+- **2026-04-28 — Phase 3 implemented**
+  - **Summary**
+    - Added lock-timeout-aware settlement contention handling with retries and explicit contention metrics.
+    - Added idempotency observability counters for replay/race/constraint-violation patterns.
+    - Introduced optional Kafka-based odds ingestion buffering with controlled consumer processing.
+    - Completed rate-limiter and odds service responsibility refactors for clearer boundaries.
+  - **Files (representative)**
+    - Settlement reliability: `BetRepository`, `DefaultSettlementService`, `SettlementRetryConfiguration`, `SettlementRetryProperties`, `SettlementProperties`
+    - Odds backpressure/refactor: `DefaultBettingService`, `DefaultOddsService`, `OddsFeedPublisher`, `DirectOddsFeedPublisher`, `KafkaOddsFeedPublisher`, `KafkaOddsFeedConsumer`, `OddsPublisher`, `DefaultOddsPublisher`, `OddsCacheUpdater`, `RedisOddsBroadcastConfiguration`, `OutboxDispatcher`
+    - Rate limiting boundary: `RateLimiterGateway`, `RateLimitingFilter`, `InMemoryRateLimiterGateway`, `RedisRateLimiterGateway`
+    - Config/deps: `pom.xml`, `application.yaml`, `KafkaConfiguration`
+    - Tests: rate limiter tests, settlement tests, odds publisher/cache/buffer tests
+  - **Architecture impact**
+    - Better hot-event behavior via lock retry/timeout controls and measurable settlement contention.
+    - Better operability through focused idempotency and contention metrics.
+    - Optional ingestion backpressure path for odds bursts without changing external API contract.
+  - **Risks / trade-offs**
+    - Additional runtime complexity (Kafka optional path, extra abstractions, more configuration).
+    - More operational tuning required (consumer throughput, lock timeout and retry parameters).
+    - Kafka buffering introduces eventual processing lag relative to direct ingestion mode.
+  - **Validation**
+    - `mvn -q test-compile` (exit code 0).
+    - `mvn -q test -Dtest=DefaultSettlementServiceTest,DefaultExposureAndOddsServiceTest,DefaultBettingServiceTest,InMemoryRateLimiterGatewayTest,RedisRateLimiterGatewayTest,RateLimitingFilterTest,OddsCacheUpdaterTest,DefaultOddsPublisherTest,DirectOddsFeedPublisherTest,KafkaOddsFeedPublisherTest,KafkaOddsFeedConsumerTest` (exit code 0).
 

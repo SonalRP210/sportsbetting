@@ -7,11 +7,11 @@ import com.sonal.sportsbetting.domain.event.EventSettledPayload;
 import com.sonal.sportsbetting.domain.event.OddsUpdatedPayload;
 import com.sonal.sportsbetting.model.DomainEventOutbox;
 import com.sonal.sportsbetting.repository.DomainEventOutboxRepository;
-import com.sonal.sportsbetting.service.DefaultOddsService;
 import com.sonal.sportsbetting.service.ExposureProjectionUpdater;
+import com.sonal.sportsbetting.service.OddsCacheUpdater;
+import com.sonal.sportsbetting.service.OddsPublisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,19 +25,22 @@ public class OutboxDispatcher {
     private final DomainEventOutboxRepository outboxRepository;
     private final ObjectMapper objectMapper;
     private final ExposureProjectionUpdater exposureProjectionUpdater;
-    private final DefaultOddsService defaultOddsService;
+    private final OddsCacheUpdater oddsCacheUpdater;
+    private final OddsPublisher oddsPublisher;
     private final RedisLatestOddsHashWriter redisLatestOddsHashWriter;
 
     public OutboxDispatcher(
             DomainEventOutboxRepository outboxRepository,
             ObjectMapper objectMapper,
             ExposureProjectionUpdater exposureProjectionUpdater,
-            @Lazy DefaultOddsService defaultOddsService,
+            OddsCacheUpdater oddsCacheUpdater,
+            OddsPublisher oddsPublisher,
             RedisLatestOddsHashWriter redisLatestOddsHashWriter) {
         this.outboxRepository = outboxRepository;
         this.objectMapper = objectMapper;
         this.exposureProjectionUpdater = exposureProjectionUpdater;
-        this.defaultOddsService = defaultOddsService;
+        this.oddsCacheUpdater = oddsCacheUpdater;
+        this.oddsPublisher = oddsPublisher;
         this.redisLatestOddsHashWriter = redisLatestOddsHashWriter;
     }
 
@@ -84,7 +87,8 @@ public class OutboxDispatcher {
     }
 
     private void handleOddsUpdated(OddsUpdatedPayload payload) {
-        defaultOddsService.applyDispatchedOddsUpdate(payload);
+        oddsCacheUpdater.updateFromDispatched(payload);
+        oddsPublisher.publish(payload);
         redisLatestOddsHashWriter.writeIfEnabled(payload);
     }
 

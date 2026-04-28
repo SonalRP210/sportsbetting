@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sonal.sportsbetting.model.OddsUpdate;
 import com.sonal.sportsbetting.properties.RedisProperties;
-import com.sonal.sportsbetting.service.DefaultOddsService;
+import com.sonal.sportsbetting.service.OddsCacheUpdater;
 import com.sonal.sportsbetting.service.OddsUpdateBroadcaster;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,28 +43,28 @@ public class RedisOddsBroadcastConfiguration {
             RedisConnectionFactory connectionFactory,
             RedisProperties redisProperties,
             ObjectMapper objectMapper,
-            DefaultOddsService defaultOddsService) {
+            OddsCacheUpdater oddsCacheUpdater) {
         RedisMessageListenerContainer container = new RedisMessageListenerContainer();
         container.setConnectionFactory(connectionFactory);
-        container.addMessageListener(new OddsMessageListener(objectMapper, defaultOddsService),
+        container.addMessageListener(new OddsMessageListener(objectMapper, oddsCacheUpdater),
                 new ChannelTopic(redisProperties.oddsChannel()));
         return container;
     }
 
     private static class OddsMessageListener implements MessageListener {
         private final ObjectMapper objectMapper;
-        private final DefaultOddsService defaultOddsService;
+        private final OddsCacheUpdater oddsCacheUpdater;
 
-        private OddsMessageListener(ObjectMapper objectMapper, DefaultOddsService defaultOddsService) {
+        private OddsMessageListener(ObjectMapper objectMapper, OddsCacheUpdater oddsCacheUpdater) {
             this.objectMapper = objectMapper;
-            this.defaultOddsService = defaultOddsService;
+            this.oddsCacheUpdater = oddsCacheUpdater;
         }
 
         @Override
         public void onMessage(Message message, byte[] pattern) {
             try {
                 OddsUpdate update = objectMapper.readValue(message.getBody(), OddsUpdate.class);
-                defaultOddsService.applyBroadcastUpdate(update);
+                oddsCacheUpdater.updateFromBroadcast(update);
             } catch (Exception ex) {
                 log.warn("Failed to process odds pub/sub message", ex);
             }

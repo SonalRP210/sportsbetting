@@ -1,13 +1,17 @@
 package com.sonal.sportsbetting.unit.service;
 
 import com.sonal.sportsbetting.PropertyFixtures;
-import com.sonal.sportsbetting.model.Bet;
-import com.sonal.sportsbetting.model.BetStatus;
+import com.sonal.sportsbetting.model.ExposureProjection;
+import com.sonal.sportsbetting.model.ExposureProjectionKey;
+import com.sonal.sportsbetting.model.LatestOdds;
+import com.sonal.sportsbetting.model.LatestOddsId;
 import com.sonal.sportsbetting.model.OddsUpdate;
-import com.sonal.sportsbetting.repository.BetRepository;
+import com.sonal.sportsbetting.repository.ExposureProjectionRepository;
+import com.sonal.sportsbetting.repository.LatestOddsRepository;
 import com.sonal.sportsbetting.service.DefaultExposureService;
 import com.sonal.sportsbetting.service.DefaultOddsService;
 import com.sonal.sportsbetting.service.NoOpOddsUpdateBroadcaster;
+import com.sonal.sportsbetting.service.outbox.DomainEventPublisher;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,15 +21,25 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class DefaultExposureAndOddsServiceTest {
 
     @Mock
-    private BetRepository betRepository;
+    private ExposureProjectionRepository exposureProjectionRepository;
+
+    @Mock
+    private LatestOddsRepository latestOddsRepository;
+
+    @Mock
+    private DomainEventPublisher domainEventPublisher;
 
     private DefaultExposureService exposureService;
     private DefaultOddsService oddsService;
@@ -33,32 +47,37 @@ class DefaultExposureAndOddsServiceTest {
     @BeforeEach
     void setUp() {
         exposureService = new DefaultExposureService(
-                betRepository,
+                exposureProjectionRepository,
                 PropertyFixtures.moneyFormatting(),
                 new SimpleMeterRegistry());
         oddsService = new DefaultOddsService(
                 new SimpleMeterRegistry(),
                 PropertyFixtures.moneyFormatting(),
                 PropertyFixtures.odds(),
-                new NoOpOddsUpdateBroadcaster());
+                new NoOpOddsUpdateBroadcaster(),
+                latestOddsRepository,
+                domainEventPublisher);
     }
 
     @Test
-    void exposureIncreaseAndDecreaseNeverBelowZero() {
-        exposureService.increaseExposure(new BigDecimal("12.25"));
-        exposureService.decreaseExposure(new BigDecimal("2.25"));
-        exposureService.decreaseExposure(new BigDecimal("50.00"));
-        when(betRepository.sumExposureByStatus(BetStatus.OPEN)).thenReturn(BigDecimal.ZERO);
+    void totalExposureReadsGlobalProjection() {
+        when(exposureProjectionRepository.findById(ExposureProjectionKey.global()))
+                .thenReturn(Optional.of(new ExposureProjection(ExposureProjectionKey.global(), new BigDecimal("12.25"), 0)));
+
+        assertEquals(0, exposureService.getTotalExposure().compareTo(new BigDecimal("12.25")));
+    }
+
+    @Test
+    void totalExposureReturnsZeroWhenProjectionMissing() {
+        when(exposureProjectionRepository.findById(ExposureProjectionKey.global())).thenReturn(Optional.empty());
 
         assertEquals(0, exposureService.getTotalExposure().compareTo(BigDecimal.ZERO));
     }
 
     @Test
-    void userExposureCountsOnlyOpenBets() {
-        when(betRepository.findByUserId("u1")).thenReturn(List.of(
-                new Bet("BET-1", "u1", "evt", new BigDecimal("10.00"), new BigDecimal("2.00"), "home", BetStatus.OPEN),
-                new Bet("BET-2", "u1", "evt", new BigDecimal("5.00"), new BigDecimal("2.00"), "away", BetStatus.CANCELLED)
-        ));
+    void userExposureReadsUserProjection() {
+        when(exposureProjectionRepository.findById(ExposureProjectionKey.forUser("u1")))
+                .thenReturn(Optional.of(new ExposureProjection(ExposureProjectionKey.forUser("u1"), new BigDecimal("20.00"), 1)));
 
         var result = exposureService.getUserExposure("u1");
 
@@ -67,12 +86,24 @@ class DefaultExposureAndOddsServiceTest {
     }
 
     @Test
-    void oddsServiceStoresScaledOdds() {
+    void oddsServiceStoresScaledOddsViaOutboxAndRepository() {
         OddsUpdate update = new OddsUpdate();
         update.setEventId("evt");
         update.setSelection("home");
         update.setOdds(new BigDecimal("1.756"));
+        when(latestOddsRepository.findById(any(LatestOddsId.class))).thenReturn(Optional.empty());
+        when(latestOddsRepository.save(any(LatestOdds.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
         oddsService.consumeOddsFeed(List.of(update));
+
+        verify(domainEventPublisher).publish(any(), any());
+    }
+
+    @Test
+    void getOddsReadThroughFromRepository() {
+        LatestOddsId id = new LatestOddsId("evt", "home");
+        LatestOdds row = new LatestOdds(id, new BigDecimal("1.756"));
+        when(latestOddsRepository.findById(id)).thenReturn(Optional.of(row));
 
         assertEquals(new BigDecimal("1.76"), oddsService.getOdds("evt", "home").orElseThrow());
     }

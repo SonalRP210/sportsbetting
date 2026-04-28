@@ -5,8 +5,11 @@ import com.sonal.sportsbetting.dto.request.PlaceBetRequest;
 import com.sonal.sportsbetting.dto.response.PlaceBetResponse;
 import com.sonal.sportsbetting.model.Bet;
 import com.sonal.sportsbetting.model.BetStatus;
+import com.sonal.sportsbetting.domain.event.BetPlacedPayload;
+import com.sonal.sportsbetting.domain.event.DomainEventType;
 import com.sonal.sportsbetting.properties.BettingProperties;
 import com.sonal.sportsbetting.repository.BetRepository;
+import com.sonal.sportsbetting.service.outbox.DomainEventPublisher;
 import com.sonal.sportsbetting.support.MoneyFormatting;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
@@ -27,7 +30,7 @@ public class DefaultBetPlacementService implements BetPlacementService {
 
     private final BetRepository betRepository;
     private final OddsService oddsService;
-    private final ExposureService exposureService;
+    private final DomainEventPublisher domainEventPublisher;
     private final MeterRegistry meterRegistry;
     private final RetryTemplate persistenceRetryTemplate;
     private final MoneyFormatting moneyFormatting;
@@ -36,14 +39,14 @@ public class DefaultBetPlacementService implements BetPlacementService {
     public DefaultBetPlacementService(
             BetRepository betRepository,
             OddsService oddsService,
-            ExposureService exposureService,
+            DomainEventPublisher domainEventPublisher,
             MeterRegistry meterRegistry,
             @Qualifier(PersistenceRetryConfiguration.PERSISTENCE_RETRY_TEMPLATE) RetryTemplate persistenceRetryTemplate,
             MoneyFormatting moneyFormatting,
             BettingProperties bettingProperties) {
         this.betRepository = betRepository;
         this.oddsService = oddsService;
-        this.exposureService = exposureService;
+        this.domainEventPublisher = domainEventPublisher;
         this.meterRegistry = meterRegistry;
         this.persistenceRetryTemplate = persistenceRetryTemplate;
         this.moneyFormatting = moneyFormatting;
@@ -96,7 +99,9 @@ public class DefaultBetPlacementService implements BetPlacementService {
         }
 
         BigDecimal exposure = moneyFormatting.normalize(request.stake().multiply(odds));
-        exposureService.increaseExposure(exposure);
+        domainEventPublisher.publish(
+                DomainEventType.BET_PLACED,
+                new BetPlacedPayload(bet.getBetId(), bet.getUserId(), exposure));
         meterRegistry.counter("bets.placed.total").increment();
         log.info("Placed bet betId={} userId={} eventId={} selection={}", betId, request.userId(), request.eventId(), request.selection());
 

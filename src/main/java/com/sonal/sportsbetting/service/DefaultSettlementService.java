@@ -1,5 +1,7 @@
 package com.sonal.sportsbetting.service;
 
+import com.sonal.sportsbetting.domain.event.DomainEventType;
+import com.sonal.sportsbetting.domain.event.EventSettledPayload;
 import com.sonal.sportsbetting.dto.response.SettleEventResponse;
 import com.sonal.sportsbetting.exception.SettlementConflictException;
 import com.sonal.sportsbetting.model.Bet;
@@ -7,6 +9,7 @@ import com.sonal.sportsbetting.model.BetStatus;
 import com.sonal.sportsbetting.model.EventSettlement;
 import com.sonal.sportsbetting.repository.BetRepository;
 import com.sonal.sportsbetting.repository.EventSettlementRepository;
+import com.sonal.sportsbetting.service.outbox.DomainEventPublisher;
 import com.sonal.sportsbetting.support.MoneyFormatting;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.slf4j.Logger;
@@ -15,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -26,6 +30,7 @@ public class DefaultSettlementService implements SettlementService {
     private final BetRepository betRepository;
     private final EventSettlementRepository eventSettlementRepository;
     private final ExposureService exposureService;
+    private final DomainEventPublisher domainEventPublisher;
     private final MeterRegistry meterRegistry;
     private final MoneyFormatting moneyFormatting;
 
@@ -33,11 +38,13 @@ public class DefaultSettlementService implements SettlementService {
             BetRepository betRepository,
             EventSettlementRepository eventSettlementRepository,
             ExposureService exposureService,
+            DomainEventPublisher domainEventPublisher,
             MeterRegistry meterRegistry,
             MoneyFormatting moneyFormatting) {
         this.betRepository = betRepository;
         this.eventSettlementRepository = eventSettlementRepository;
         this.exposureService = exposureService;
+        this.domainEventPublisher = domainEventPublisher;
         this.meterRegistry = meterRegistry;
         this.moneyFormatting = moneyFormatting;
     }
@@ -68,6 +75,13 @@ public class DefaultSettlementService implements SettlementService {
                     exposureService.getTotalExposure());
         }
 
+        List<EventSettledPayload.RiskRelease> releases = new ArrayList<>();
+        for (Bet bet : openBets) {
+            releases.add(new EventSettledPayload.RiskRelease(
+                    bet.getUserId(),
+                    moneyFormatting.normalize(bet.getStake().multiply(bet.getOdds()))));
+        }
+
         int winners = 0;
         int losers = 0;
         BigDecimal payout = BigDecimal.ZERO;
@@ -82,12 +96,15 @@ public class DefaultSettlementService implements SettlementService {
                 bet.setStatus(BetStatus.LOST);
                 losers++;
             }
-            exposureService.decreaseExposure(riskAmount);
             betRepository.save(bet);
         }
 
         EventSettlement ledger = new EventSettlement(eventId, winningSelection, winners, losers, payout);
         eventSettlementRepository.save(ledger);
+
+        domainEventPublisher.publish(
+                DomainEventType.EVENT_SETTLED,
+                new EventSettledPayload(eventId, winningSelection, releases));
 
         meterRegistry.counter("events.settled.total").increment();
         log.info("Settled event eventId={} winner={} winners={} losers={}", eventId, winningSelection, winners, losers);

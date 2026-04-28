@@ -31,6 +31,8 @@ api:
   base-path: /api/${api.version}
 
 app:
+  outbox:
+    poll-interval-ms: 1000
   redis:
     enabled: false
     rate-limit-key-prefix: "rate_limit:"

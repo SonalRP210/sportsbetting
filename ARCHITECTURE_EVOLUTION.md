@@ -153,11 +153,29 @@ All baseline bullets under *Data consistency and concurrency controls* remain tr
 2. Authoritative total exposure from DB aggregate on read.
 3. Synchronize odds across instances via Redis pub/sub + local cache.
 
-### Phase 2 (consistency + boundaries)
+### Phase 2 (consistency + boundaries) — **implemented**
 
 1. Domain events (`BetPlaced`, `EventSettled`, `OddsUpdated`) with outbox pattern.
 2. Exposure projection as read model.
 3. Explicit write/read model boundaries.
+
+#### Phase 2 implementation notes
+
+- **Outbox + domain events**
+  - Added `DomainEventOutbox` and dispatcher path (`DomainEventPublisher`, `OutboxDispatcher`, `OutboxPoller`) so business writes and event records are committed together.
+  - Event payloads introduced for `BET_PLACED`, `BET_CANCELLED`, `EVENT_SETTLED`, `ODDS_UPDATED`.
+  - Poller retries unprocessed events (`app.outbox.poll-interval-ms`) to avoid event loss on transient failures.
+- **Exposure projection**
+  - Added `exposure_projection` table and updater (`ExposureProjectionUpdater`) to maintain global and per-user open risk from events.
+  - `DefaultExposureService` now reads projection rows instead of mutating in-process exposure state.
+  - Startup initializer (`ExposureProjectionStartupInitializer`) backfills projection from existing open bets if projection is empty.
+- **Odds write/read boundaries**
+  - Added durable canonical `latest_odds` table (`LatestOdds`, `LatestOddsRepository`).
+  - `DefaultOddsService` persists latest odds and emits `ODDS_UPDATED`; local cache is read-through/warm cache, not source of truth.
+  - Optional Redis hash mirror (`RedisLatestOddsHashWriter`) keeps a shared latest snapshot when Redis is enabled.
+- **Service boundary changes**
+  - Placement/cancel/settlement flows now publish events; direct exposure increment/decrement APIs were removed from `ExposureService`.
+  - Query paths read from projection/canonical stores.
 
 ### Phase 3 (throughput + operations)
 
@@ -230,4 +248,28 @@ Validation:
   - **Validation**
     - `mvn test` (full suite, exit code 0; Docker-backed tests require Docker where enabled).
     - `@WebMvcTest` slices import `WebMvcFilterTestSupport` so `RateLimitingFilter` receives a `RateLimiterGateway` bean (slice contexts do not component-scan gateway implementations).
+- **2026-04-28 — Phase 2 implemented**
+  - **Summary**
+    - Introduced DB-backed domain events through an outbox table and dispatcher/poller flow.
+    - Added event-driven `exposure_projection` read model for deterministic global and per-user exposure.
+    - Added durable canonical `latest_odds` store and shifted local map to read-through cache semantics.
+    - Removed in-process exposure mutation boundary (`increaseExposure`/`decreaseExposure`) from service contract.
+  - **Files (representative)**
+    - Domain events: `domain/event/`*
+    - Outbox: `DomainEventOutbox`, `DomainEventOutboxRepository`, `service/outbox/*`, `SchedulingConfiguration`
+    - Projection: `ExposureProjection`, `ExposureProjectionKey`, `ExposureProjectionRepository`, `ExposureProjectionUpdater`, `ExposureProjectionStartupInitializer`
+    - Canonical odds: `LatestOdds`, `LatestOddsId`, `LatestOddsRepository`, `DefaultOddsService`
+    - Service wiring: `DefaultBetPlacementService`, `DefaultBetQueryService`, `DefaultSettlementService`, `ExposureService`, `DefaultExposureService`, `BetRepository`
+    - Config/tests: `application.yaml` + updated unit/integration suites
+  - **Architecture impact**
+    - Stronger consistency boundary: business state change and domain event record are transactionally aligned.
+    - Exposure and latest odds reads are deterministic, restart-safe, and cross-node consistent from DB-backed models.
+    - Clearer command/query separation: writes emit events; reads consume projections/canonical stores.
+  - **Risks / trade-offs**
+    - Increased DB write/read load (outbox inserts, projection updates, poller scans).
+    - More moving parts (dispatcher/poller/retry paths) and operational tuning needs (batching/indexing/cleanup).
+    - Eventual lag is still possible during failures until poller catch-up completes.
+  - **Validation**
+    - `mvn test -Dtest=BettingServiceTest,BettingSettlementIntegrationTest,BetIdempotencyIntegrationTest` (exit code 0).
+    - Updated unit tests for placement/cancel/settlement/exposure/odds boundaries (event publication + projection-based reads).
 

@@ -26,4 +26,7 @@ public interface BetRepository extends JpaRepository<Bet, String> {
 
     @Query("select coalesce(sum(b.stake * b.odds), 0) from Bet b where b.status = :status")
     BigDecimal sumExposureByStatus(@Param("status") BetStatus status);
+
+    @Query("select b.userId, coalesce(sum(b.stake * b.odds), 0), count(b) from Bet b where b.status = :status group by b.userId")
+    List<Object[]> sumOpenRiskGroupedByUser(@Param("status") BetStatus status);
 }

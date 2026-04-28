@@ -2,6 +2,8 @@ package com.sonal.sportsbetting.unit.service;
 
 import com.sonal.sportsbetting.PropertyFixtures;
 import com.sonal.sportsbetting.config.PersistenceRetryConfiguration;
+import com.sonal.sportsbetting.domain.event.BetPlacedPayload;
+import com.sonal.sportsbetting.domain.event.DomainEventType;
 import com.sonal.sportsbetting.dto.request.PlaceBetRequest;
 import com.sonal.sportsbetting.dto.response.PlaceBetResponse;
 import com.sonal.sportsbetting.model.Bet;
@@ -9,8 +11,8 @@ import com.sonal.sportsbetting.model.BetStatus;
 import com.sonal.sportsbetting.properties.BettingProperties;
 import com.sonal.sportsbetting.repository.BetRepository;
 import com.sonal.sportsbetting.service.DefaultBetPlacementService;
-import com.sonal.sportsbetting.service.ExposureService;
 import com.sonal.sportsbetting.service.OddsService;
+import com.sonal.sportsbetting.service.outbox.DomainEventPublisher;
 import com.sonal.sportsbetting.support.MoneyFormatting;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -42,7 +45,7 @@ class DefaultBetPlacementServiceTest {
     private OddsService oddsService;
 
     @Mock
-    private ExposureService exposureService;
+    private DomainEventPublisher domainEventPublisher;
 
     private DefaultBetPlacementService service;
     private RetryTemplate persistenceRetryTemplate;
@@ -58,7 +61,7 @@ class DefaultBetPlacementServiceTest {
         service = new DefaultBetPlacementService(
                 betRepository,
                 oddsService,
-                exposureService,
+                domainEventPublisher,
                 new SimpleMeterRegistry(),
                 persistenceRetryTemplate,
                 moneyFormatting,
@@ -80,7 +83,9 @@ class DefaultBetPlacementServiceTest {
         ArgumentCaptor<Bet> captor = ArgumentCaptor.forClass(Bet.class);
         verify(betRepository).save(captor.capture());
         assertEquals("u1", captor.getValue().getUserId());
-        verify(exposureService).increaseExposure(new BigDecimal("17.50"));
+        ArgumentCaptor<BetPlacedPayload> payloadCaptor = ArgumentCaptor.forClass(BetPlacedPayload.class);
+        verify(domainEventPublisher).publish(eq(DomainEventType.BET_PLACED), payloadCaptor.capture());
+        assertEquals(new BigDecimal("17.50"), payloadCaptor.getValue().openRisk());
     }
 
     @Test
@@ -95,7 +100,7 @@ class DefaultBetPlacementServiceTest {
         assertEquals("BET-existing", response.betId());
         verify(betRepository, never()).save(any());
         verify(oddsService, never()).getOdds(any(), any());
-        verify(exposureService, never()).increaseExposure(any());
+        verify(domainEventPublisher, never()).publish(any(), any());
     }
 
     @Test

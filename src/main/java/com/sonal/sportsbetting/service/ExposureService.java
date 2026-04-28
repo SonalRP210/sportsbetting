@@ -5,9 +5,6 @@ import com.sonal.sportsbetting.dto.response.UserExposureResponse;
 import java.math.BigDecimal;
 
 public interface ExposureService {
-    void increaseExposure(BigDecimal amount);
-
-    void decreaseExposure(BigDecimal amount);
 
     BigDecimal getTotalExposure();
 

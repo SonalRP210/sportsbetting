@@ -9,8 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Component
 public class DomainEventPublisher {
@@ -34,28 +32,13 @@ public class DomainEventPublisher {
         try {
             String json = objectMapper.writeValueAsString(payload);
             DomainEventOutbox row = new DomainEventOutbox(type, json);
-            outboxRepository.saveAndFlush(row);
-            long id = row.getId();
-            if (TransactionSynchronizationManager.isSynchronizationActive()) {
-                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        dispatchSafely(id);
-                    }
-                });
-            } else {
-                dispatchSafely(id);
-            }
+            outboxRepository.save(row);
+            // Dispatch is intentionally left to OutboxPoller (runs every 500 ms).
+            // Inline dispatch via afterCommit holds the caller's DB connection
+            // through the callback phase, effectively requiring two connections
+            // per in-flight request and exhausting the pool under load.
         } catch (JsonProcessingException ex) {
             throw new IllegalStateException("Failed to serialize domain event " + type, ex);
-        }
-    }
-
-    private void dispatchSafely(long id) {
-        try {
-            outboxDispatcher.processById(id);
-        } catch (Exception ex) {
-            log.warn("Outbox dispatch failed for id={}, will rely on poller", id, ex);
         }
     }
 }

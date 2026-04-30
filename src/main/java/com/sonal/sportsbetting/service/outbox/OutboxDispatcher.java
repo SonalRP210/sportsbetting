@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 
 @Component
 public class OutboxDispatcher {
@@ -92,14 +93,13 @@ public class OutboxDispatcher {
         redisLatestOddsHashWriter.writeIfEnabled(payload);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void pollUnprocessed() {
-        for (DomainEventOutbox row : outboxRepository.findTop50ByProcessedAtIsNullOrderByIdAsc()) {
-            try {
-                processById(row.getId());
-            } catch (Exception ex) {
-                log.debug("Poller will retry outbox id={}", row.getId(), ex);
-            }
-        }
+    /**
+     * Returns unprocessed rows for the poller to iterate over. Each row is then
+     * dispatched by {@link OutboxRowProcessor} in its own REQUIRES_NEW transaction,
+     * so a failure on one row never rolls back the others.
+     */
+    @Transactional(readOnly = true)
+    public List<DomainEventOutbox> fetchUnprocessed() {
+        return outboxRepository.findTop50ByProcessedAtIsNullOrderByIdAsc();
     }
 }

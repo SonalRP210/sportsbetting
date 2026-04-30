@@ -55,3 +55,7 @@ Thumbs.db
 .env.*
 *.tmp
 *.swp
+
+# Load testing
+loadtest/k6/results/*.json
+loadtest/k6/results/*.html

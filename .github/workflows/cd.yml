@@ -43,6 +43,38 @@ jobs:
             echo "compose_file=docker-compose.loadtest.yml" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Validate deploy configuration
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_APP_DIR: ${{ secrets.DEPLOY_APP_DIR }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for v in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY DEPLOY_APP_DIR; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error title=Missing secret::$v is not configured. Add it in Settings > Secrets and variables > Actions."
+              missing=1
+            fi
+          done
+          if [ "$missing" -ne 0 ]; then
+            echo "Deployment skipped because required secrets are missing."
+            exit 1
+          fi
+
+      - name: Show deployment target
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_APP_DIR: ${{ secrets.DEPLOY_APP_DIR }}
+        run: |
+          echo "Deploying branch '${{ steps.vars.outputs.branch }}' using '${{ steps.vars.outputs.compose_file }}'"
+          echo "Target host: ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PORT}"
+          echo "Target app dir: ${DEPLOY_APP_DIR}"
+
       - name: Deploy on target host
         uses: appleboy/ssh-action@v1.2.0
         with:

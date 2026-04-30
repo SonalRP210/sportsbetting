@@ -13,6 +13,7 @@ import com.sonal.sportsbetting.repository.BetRepository;
 import com.sonal.sportsbetting.repository.EventSettlementRepository;
 import com.sonal.sportsbetting.service.outbox.DomainEventPublisher;
 import com.sonal.sportsbetting.support.MoneyFormatting;
+import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
@@ -42,6 +43,11 @@ public class DefaultSettlementService implements SettlementService {
     private final MeterRegistry meterRegistry;
     private final MoneyFormatting moneyFormatting;
 
+    private final Counter settlementSuccessCounter;
+    private final Counter settlementConflictCounter;
+    private final Counter settlementIdempotentCounter;
+    private final Counter settlementLockFailureCounter;
+
     public DefaultSettlementService(
             BetRepository betRepository,
             EventSettlementRepository eventSettlementRepository,
@@ -59,6 +65,12 @@ public class DefaultSettlementService implements SettlementService {
         this.settlementProperties = settlementProperties;
         this.meterRegistry = meterRegistry;
         this.moneyFormatting = moneyFormatting;
+
+        // Pre-register counters for better performance and consistent naming
+        this.settlementSuccessCounter = meterRegistry.counter("settlement.success");
+        this.settlementConflictCounter = meterRegistry.counter("settlement.conflicts");
+        this.settlementIdempotentCounter = meterRegistry.counter("settlement.idempotent_replays");
+        this.settlementLockFailureCounter = meterRegistry.counter("settlement.lock.failures");
     }
 
     @Override
@@ -70,11 +82,11 @@ public class DefaultSettlementService implements SettlementService {
             if (prior.isPresent()) {
                 EventSettlement ledger = prior.get();
                 if (!Objects.equals(ledger.getWinningSelection(), winningSelection)) {
-                    meterRegistry.counter("events.settled.conflicts").increment();
+                    settlementConflictCounter.increment();
                     throw new SettlementConflictException(
                             "Event " + eventId + " was already settled with selection " + ledger.getWinningSelection());
                 }
-                meterRegistry.counter("events.settled.idempotent_replay").increment();
+                settlementIdempotentCounter.increment();
                 log.info("Idempotent settlement replay eventId={}", eventId);
                 return buildResponseFromLedger(ledger);
             }
@@ -86,7 +98,7 @@ public class DefaultSettlementService implements SettlementService {
                 long lockWaitMillis = Duration.ofNanos(System.nanoTime() - lockStartNanos).toMillis();
                 meterRegistry.timer("events.settlement.lock.wait").record(Duration.ofMillis(lockWaitMillis));
             } catch (PessimisticLockingFailureException | QueryTimeoutException ex) {
-                meterRegistry.counter("events.settlement.lock.failures").increment();
+                settlementLockFailureCounter.increment();
                 throw new IllegalStateException(
                         "Unable to acquire settlement lock within " + settlementProperties.lockTimeoutMs() + "ms", ex);
             }
@@ -132,7 +144,7 @@ public class DefaultSettlementService implements SettlementService {
                     DomainEventType.EVENT_SETTLED,
                     new EventSettledPayload(eventId, winningSelection, releases));
 
-            meterRegistry.counter("events.settled.total").increment();
+            settlementSuccessCounter.increment();
             log.info("Settled event eventId={} winner={} winners={} losers={}", eventId, winningSelection, winners, losers);
             return new SettleEventResponse(
                     eventId,
@@ -142,7 +154,9 @@ public class DefaultSettlementService implements SettlementService {
                     payout,
                     exposureService.getTotalExposure());
         } finally {
-            durationSample.stop(Timer.builder("events.settled.duration").register(meterRegistry));
+            durationSample.stop(Timer.builder("settlement.duration")
+                    .tag("eventId", eventId)
+                    .register(meterRegistry));
         }
     }
 

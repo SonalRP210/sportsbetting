@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 class BettingServiceTest extends AbstractPostgresSpringBootTest {
     @Autowired
@@ -108,7 +109,9 @@ class BettingServiceTest extends AbstractPostgresSpringBootTest {
                 new PlaceBetRequest(userId, eventOpen2, "draw", new BigDecimal("5.00"))
         );
 
-        UserExposureResponse exposure = service.getUserExposure(userId);
+        UserExposureResponse exposure = waitForValue(
+                () -> service.getUserExposure(userId),
+                value -> value.openBetCount() == 2 && new BigDecimal("19.50").compareTo(value.openExposure()) == 0);
         Assertions.assertEquals(2, exposure.openBetCount());
         Assertions.assertEquals(new BigDecimal("19.50"), exposure.openExposure());
     }
@@ -145,13 +148,17 @@ class BettingServiceTest extends AbstractPostgresSpringBootTest {
         update.setSelection("home");
         update.setOdds(new BigDecimal("2.20"));
         service.consumeOddsFeed(List.of(update));
+        waitForOutboxPoll();
 
         Assertions.assertEquals(new BigDecimal("1.80"), service.getBetById(placed.betId()).getOdds());
         PlaceBetResponse nextPlaced = placeAcceptedBet(
                 service,
                 new PlaceBetRequest(userId, eventId, "home", new BigDecimal("4.00"))
         );
-        Assertions.assertEquals(new BigDecimal("2.20"), service.getBetById(nextPlaced.betId()).getOdds());
+        BigDecimal latestOdds = waitForValue(
+                () -> service.getBetById(nextPlaced.betId()).getOdds(),
+                value -> new BigDecimal("2.20").compareTo(value) == 0);
+        Assertions.assertEquals(new BigDecimal("2.20"), latestOdds);
     }
 
     private static PlaceBetResponse placeAcceptedBet(BettingService service, PlaceBetRequest req) {
@@ -164,5 +171,32 @@ class BettingServiceTest extends AbstractPostgresSpringBootTest {
         update.setSelection(selection);
         update.setOdds(odds);
         service.consumeOddsFeed(List.of(update));
+    }
+
+    private static <T> T waitForValue(Supplier<T> supplier, java.util.function.Predicate<T> predicate) {
+        long deadline = System.currentTimeMillis() + 5000;
+        T last = supplier.get();
+        while (System.currentTimeMillis() < deadline) {
+            if (predicate.test(last)) {
+                return last;
+            }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException("Interrupted while waiting for asynchronous projection update", ex);
+            }
+            last = supplier.get();
+        }
+        return last;
+    }
+
+    private static void waitForOutboxPoll() {
+        try {
+            Thread.sleep(1500);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting for outbox poller", ex);
+        }
     }
 }

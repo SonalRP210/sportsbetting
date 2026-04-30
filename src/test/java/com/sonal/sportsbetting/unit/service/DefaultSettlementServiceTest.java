@@ -120,7 +120,7 @@ class DefaultSettlementServiceTest {
                 .when(betRepository).findByEventIdAndStatusForUpdate("evt", BetStatus.OPEN);
 
         assertThrows(IllegalStateException.class, () -> service.settleEvent("evt", "home"));
-        Counter failures = Search.in(meterRegistry).name("events.settlement.lock.failures").counter();
+        Counter failures = Search.in(meterRegistry).name("settlement.lock.failures").counter();
         assertEquals(1.0, failures.count());
     }
 }

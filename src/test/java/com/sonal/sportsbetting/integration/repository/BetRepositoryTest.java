@@ -42,4 +42,44 @@ class BetRepositoryTest extends AbstractPostgresDataJpaTest {
         assertEquals(1, byEvent.size());
         assertTrue(betRepository.findById(bet.getBetId()).isPresent());
     }
+
+    @Test
+    void sumExposureByStatusSumsOnlyMatchingStatus() {
+        String userId = "u-" + UUID.randomUUID();
+        Bet open1 = new Bet(
+                "BET-" + UUID.randomUUID(),
+                userId,
+                "e-open-1",
+                new BigDecimal("10.00"),
+                new BigDecimal("2.00"),
+                "home",
+                BetStatus.OPEN
+        );
+        Bet open2 = new Bet(
+                "BET-" + UUID.randomUUID(),
+                userId,
+                "e-open-2",
+                new BigDecimal("5.00"),
+                new BigDecimal("3.00"),
+                "away",
+                BetStatus.OPEN
+        );
+        Bet settled = new Bet(
+                "BET-" + UUID.randomUUID(),
+                userId,
+                "e-settled",
+                new BigDecimal("100.00"),
+                new BigDecimal("99.00"),
+                "home",
+                BetStatus.WON
+        );
+        betRepository.save(open1);
+        betRepository.save(open2);
+        betRepository.save(settled);
+
+        BigDecimal openExposure = betRepository.sumExposureByStatus(BetStatus.OPEN);
+
+        // 10*2 + 5*3 = 35
+        assertEquals(0, openExposure.compareTo(new BigDecimal("35.00")));
+    }
 }

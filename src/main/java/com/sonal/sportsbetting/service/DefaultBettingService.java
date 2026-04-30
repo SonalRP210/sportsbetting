@@ -16,19 +16,19 @@ import java.util.List;
 @Service
 public class DefaultBettingService implements BettingService {
     private final BetPlacementService betPlacementService;
-    private final OddsService oddsService;
+    private final OddsFeedPublisher oddsFeedPublisher;
     private final SettlementService settlementService;
     private final BetQueryService betQueryService;
     private final ExposureService exposureService;
 
     public DefaultBettingService(
             BetPlacementService betPlacementService,
-            OddsService oddsService,
+            OddsFeedPublisher oddsFeedPublisher,
             SettlementService settlementService,
             BetQueryService betQueryService,
             ExposureService exposureService) {
         this.betPlacementService = betPlacementService;
-        this.oddsService = oddsService;
+        this.oddsFeedPublisher = oddsFeedPublisher;
         this.settlementService = settlementService;
         this.betQueryService = betQueryService;
         this.exposureService = exposureService;
@@ -41,7 +41,7 @@ public class DefaultBettingService implements BettingService {
 
     @Override
     public void consumeOddsFeed(List<OddsUpdate> feedEvents) {
-        oddsService.consumeOddsFeed(feedEvents);
+        oddsFeedPublisher.publish(feedEvents);
     }
 
     @Override

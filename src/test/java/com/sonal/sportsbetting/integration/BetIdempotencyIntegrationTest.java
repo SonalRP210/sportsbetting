@@ -4,7 +4,10 @@ import com.sonal.sportsbetting.dto.request.PlaceBetRequest;
 import com.sonal.sportsbetting.dto.response.PlaceBetResponse;
 import com.sonal.sportsbetting.model.OddsUpdate;
 import com.sonal.sportsbetting.repository.BetRepository;
+import com.sonal.sportsbetting.repository.DomainEventOutboxRepository;
 import com.sonal.sportsbetting.repository.EventSettlementRepository;
+import com.sonal.sportsbetting.repository.ExposureProjectionRepository;
+import com.sonal.sportsbetting.repository.LatestOddsRepository;
 import com.sonal.sportsbetting.service.BettingService;
 import com.sonal.sportsbetting.support.AbstractPostgresSpringBootTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,10 +31,22 @@ class BetIdempotencyIntegrationTest extends AbstractPostgresSpringBootTest {
     @Autowired
     private EventSettlementRepository eventSettlementRepository;
 
+    @Autowired
+    private DomainEventOutboxRepository domainEventOutboxRepository;
+
+    @Autowired
+    private LatestOddsRepository latestOddsRepository;
+
+    @Autowired
+    private ExposureProjectionRepository exposureProjectionRepository;
+
     @BeforeEach
     void setUp() {
+        domainEventOutboxRepository.deleteAll();
         eventSettlementRepository.deleteAll();
         betRepository.deleteAll();
+        latestOddsRepository.deleteAll();
+        exposureProjectionRepository.deleteAll();
     }
 
     @Test

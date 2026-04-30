@@ -4,8 +4,10 @@ import com.sonal.sportsbetting.dto.response.BetDetailResponse;
 import com.sonal.sportsbetting.exception.BetNotFoundException;
 import com.sonal.sportsbetting.model.Bet;
 import com.sonal.sportsbetting.model.BetStatus;
+import com.sonal.sportsbetting.PropertyFixtures;
 import com.sonal.sportsbetting.repository.BetRepository;
 import com.sonal.sportsbetting.service.DefaultBetQueryService;
+import com.sonal.sportsbetting.service.outbox.DomainEventPublisher;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,11 +31,18 @@ class DefaultBetQueryServiceTest {
     @Mock
     private BetRepository betRepository;
 
+    @Mock
+    private DomainEventPublisher domainEventPublisher;
+
     private DefaultBetQueryService service;
 
     @BeforeEach
     void setUp() {
-        service = new DefaultBetQueryService(betRepository, new SimpleMeterRegistry());
+        service = new DefaultBetQueryService(
+                betRepository,
+                new SimpleMeterRegistry(),
+                domainEventPublisher,
+                PropertyFixtures.moneyFormatting());
     }
 
     @Test

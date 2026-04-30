@@ -1,48 +1,48 @@
 package com.sonal.sportsbetting.config;
 
-import com.sonal.sportsbetting.exception.RateLimitExceededException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.time.Instant;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @Component
 public class RateLimitingFilter extends OncePerRequestFilter {
-    private final RateLimitProperties properties;
-    private final ConcurrentHashMap<String, ClientWindow> windows = new ConcurrentHashMap<>();
+    private static final Logger log = LoggerFactory.getLogger(RateLimitingFilter.class);
 
-    public RateLimitingFilter(RateLimitProperties properties) {
-        this.properties = properties;
+    private final RateLimiterGateway rateLimiterGateway;
+
+    public RateLimitingFilter(RateLimiterGateway rateLimiterGateway) {
+        this.rateLimiterGateway = rateLimiterGateway;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         String clientKey = request.getRemoteAddr() + ":" + request.getRequestURI();
-        long nowEpochSecond = Instant.now().getEpochSecond();
-
-        ClientWindow window = windows.compute(clientKey, (key, existing) -> {
-            if (existing == null || nowEpochSecond - existing.windowStartEpochSecond() >= properties.getWindowSeconds()) {
-                return new ClientWindow(nowEpochSecond, new AtomicInteger(1));
-            }
-            existing.counter().incrementAndGet();
-            return existing;
-        });
-
-        if (window.counter().get() > properties.getRequests()) {
-            throw new RateLimitExceededException("Too many requests. Please retry later.");
+        boolean accepted;
+        try {
+            accepted = rateLimiterGateway.tryConsume(clientKey);
+        } catch (Exception ex) {
+            log.warn("Rate limiter unavailable for key={}, failing open", clientKey, ex);
+            filterChain.doFilter(request, response);
+            return;
+        }
+        if (!accepted) {
+            log.debug("Rate limit exceeded for key={}", clientKey);
+            response.setStatus(429);
+            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            response.getWriter().write(
+                    "{\"code\":\"RATE_LIMITED\",\"message\":\"Too many requests. Please retry later.\"}");
+            return;
         }
 
         filterChain.doFilter(request, response);
-    }
-
-    private record ClientWindow(long windowStartEpochSecond, AtomicInteger counter) {
     }
 }

@@ -9,7 +9,7 @@ info:
     - Monetary amounts and odds are serialized as **JSON numbers** (Java `BigDecimal`), not quoted strings.
     - **Correlation**: send optional header `X-Request-Id`; the same value is echoed on responses when present, otherwise a generated id is returned (`ApiErrorResponse.traceId` may also carry the value).
     - **Idempotency** (place bet): optional header `Idempotency-Key` (see operation). Replays with the same key and user return the same bet.
-    - **Live machine-readable spec** (Springdoc): `/v3/api-docs` and UI at `/swagger-ui.html` when the service is running.
+    - **Live machine-readable spec** (Springdoc): `/v3/api-docs` when the service is running (no browser UI).
 
     Error payloads use `application/json` and schema `ApiErrorResponse`. HTTP status indicates the class of problem; `code` is a stable machine-readable string.
 servers:

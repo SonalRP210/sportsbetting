@@ -3,6 +3,7 @@ package com.sonal.sportsbetting.controller;
 import com.sonal.sportsbetting.dto.response.UserBetSummaryResponse;
 import com.sonal.sportsbetting.dto.response.UserExposureResponse;
 import com.sonal.sportsbetting.config.CorrelationTestSupport;
+import com.sonal.sportsbetting.config.WebMvcFilterTestSupport;
 import com.sonal.sportsbetting.exception.GlobalExceptionHandler;
 import com.sonal.sportsbetting.service.BettingService;
 import org.junit.jupiter.api.Test;
@@ -23,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = UserController.class)
-@Import({GlobalExceptionHandler.class, CorrelationTestSupport.class})
+@Import({GlobalExceptionHandler.class, CorrelationTestSupport.class, WebMvcFilterTestSupport.class})
 class UserControllerMvcTest {
 
     @Autowired

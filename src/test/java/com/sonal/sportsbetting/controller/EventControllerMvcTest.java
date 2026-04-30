@@ -5,6 +5,7 @@ import com.sonal.sportsbetting.dto.request.SettleEventRequest;
 import com.sonal.sportsbetting.dto.response.SettleEventResponse;
 import com.sonal.sportsbetting.dto.response.UserBetSummaryResponse;
 import com.sonal.sportsbetting.config.CorrelationTestSupport;
+import com.sonal.sportsbetting.config.WebMvcFilterTestSupport;
 import com.sonal.sportsbetting.exception.GlobalExceptionHandler;
 import com.sonal.sportsbetting.exception.SettlementConflictException;
 import com.sonal.sportsbetting.service.BettingService;
@@ -29,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = EventController.class)
-@Import({GlobalExceptionHandler.class, CorrelationTestSupport.class})
+@Import({GlobalExceptionHandler.class, CorrelationTestSupport.class, WebMvcFilterTestSupport.class})
 class EventControllerMvcTest {
 
     @Autowired

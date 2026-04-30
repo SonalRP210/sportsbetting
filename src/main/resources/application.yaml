@@ -4,6 +4,17 @@ server:
 spring:
   application:
     name: sportsbetting
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.sonal.sportsbetting.model"
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/sportsbetting}
     username: ${SPRING_DATASOURCE_USERNAME:sportsbetting}
@@ -31,6 +42,12 @@ api:
   base-path: /api/${api.version}
 
 app:
+  outbox:
+    poll-interval-ms: 1000
+  redis:
+    enabled: false
+    rate-limit-key-prefix: "rate_limit:"
+    odds-channel: "odds:updates"
   rate-limit:
     requests: 120
     window-seconds: 60
@@ -50,10 +67,19 @@ app:
     idempotency-key-header: Idempotency-Key
   odds:
     composite-key-separator: ":"
+  kafka:
+    odds-enabled: false
+    odds-topic: odds-feed-events
+    odds-group-id: sportsbetting-odds-consumers
+  settlement:
+    lock-timeout-ms: 2000
   retry:
     persistence:
       max-attempts: 3
       backoff-millis: 50
+    settlement:
+      max-attempts: 3
+      backoff-millis: 100
 
 management:
   endpoints:
@@ -67,5 +93,3 @@ management:
 springdoc:
   api-docs:
     path: /v3/api-docs
-  swagger-ui:
-    path: /swagger-ui.html

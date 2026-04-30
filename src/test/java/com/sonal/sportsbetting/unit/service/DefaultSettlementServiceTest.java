@@ -1,6 +1,8 @@
 package com.sonal.sportsbetting.unit.service;
 
 import com.sonal.sportsbetting.PropertyFixtures;
+import com.sonal.sportsbetting.domain.event.DomainEventType;
+import com.sonal.sportsbetting.domain.event.EventSettledPayload;
 import com.sonal.sportsbetting.dto.response.SettleEventResponse;
 import com.sonal.sportsbetting.exception.SettlementConflictException;
 import com.sonal.sportsbetting.model.Bet;
@@ -10,10 +12,14 @@ import com.sonal.sportsbetting.repository.BetRepository;
 import com.sonal.sportsbetting.repository.EventSettlementRepository;
 import com.sonal.sportsbetting.service.DefaultSettlementService;
 import com.sonal.sportsbetting.service.ExposureService;
+import com.sonal.sportsbetting.service.outbox.DomainEventPublisher;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.search.Search;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -24,6 +30,8 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,15 +48,23 @@ class DefaultSettlementServiceTest {
     @Mock
     private ExposureService exposureService;
 
+    @Mock
+    private DomainEventPublisher domainEventPublisher;
+
+    private SimpleMeterRegistry meterRegistry;
     private DefaultSettlementService service;
 
     @BeforeEach
     void setUp() {
+        meterRegistry = new SimpleMeterRegistry();
         service = new DefaultSettlementService(
                 betRepository,
                 eventSettlementRepository,
                 exposureService,
-                new SimpleMeterRegistry(),
+                domainEventPublisher,
+                PropertyFixtures.settlementRetry(),
+                PropertyFixtures.settlement(),
+                meterRegistry,
                 PropertyFixtures.moneyFormatting());
     }
 
@@ -67,8 +83,9 @@ class DefaultSettlementServiceTest {
         assertEquals(new BigDecimal("20.00"), response.totalPayout());
         assertEquals(BetStatus.WON, winner.getStatus());
         assertEquals(BetStatus.LOST, loser.getStatus());
-        verify(exposureService).decreaseExposure(new BigDecimal("20.00"));
-        verify(exposureService).decreaseExposure(new BigDecimal("15.00"));
+        ArgumentCaptor<EventSettledPayload> captor = ArgumentCaptor.forClass(EventSettledPayload.class);
+        verify(domainEventPublisher).publish(eq(DomainEventType.EVENT_SETTLED), captor.capture());
+        assertEquals(2, captor.getValue().releases().size());
         verify(eventSettlementRepository).save(any(EventSettlement.class));
     }
 
@@ -85,6 +102,7 @@ class DefaultSettlementServiceTest {
         assertEquals(new BigDecimal("20.00"), response.totalPayout());
         assertEquals(new BigDecimal("5.00"), response.globalExposure());
         verify(betRepository, never()).findByEventIdAndStatusForUpdate(any(), any());
+        verify(domainEventPublisher, never()).publish(any(), any());
     }
 
     @Test
@@ -93,5 +111,16 @@ class DefaultSettlementServiceTest {
         when(eventSettlementRepository.findById("evt")).thenReturn(Optional.of(ledger));
 
         assertThrows(SettlementConflictException.class, () -> service.settleEvent("evt", "away"));
+    }
+
+    @Test
+    void settleEventLockFailureIncrementsMetricAndThrows() {
+        when(eventSettlementRepository.findById("evt")).thenReturn(Optional.empty());
+        doThrow(new org.springframework.dao.PessimisticLockingFailureException("lock"))
+                .when(betRepository).findByEventIdAndStatusForUpdate("evt", BetStatus.OPEN);
+
+        assertThrows(IllegalStateException.class, () -> service.settleEvent("evt", "home"));
+        Counter failures = Search.in(meterRegistry).name("settlement.lock.failures").counter();
+        assertEquals(1.0, failures.count());
     }
 }

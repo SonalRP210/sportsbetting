@@ -4,6 +4,8 @@ import com.sonal.sportsbetting.properties.BettingProperties;
 import com.sonal.sportsbetting.properties.CorrelationProperties;
 import com.sonal.sportsbetting.properties.OddsProperties;
 import com.sonal.sportsbetting.properties.PersistenceRetryProperties;
+import com.sonal.sportsbetting.properties.SettlementProperties;
+import com.sonal.sportsbetting.properties.SettlementRetryProperties;
 import com.sonal.sportsbetting.support.MoneyFormatting;
 
 /**
@@ -28,6 +30,14 @@ public final class PropertyFixtures {
 
     public static PersistenceRetryProperties persistenceRetry() {
         return new PersistenceRetryProperties(3, 50L);
+    }
+
+    public static SettlementRetryProperties settlementRetry() {
+        return new SettlementRetryProperties(3, 100L);
+    }
+
+    public static SettlementProperties settlement() {
+        return new SettlementProperties(2000);
     }
 
     public static CorrelationProperties correlation() {

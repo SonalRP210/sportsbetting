@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sonal.sportsbetting.config.AppConstants;
 import com.sonal.sportsbetting.model.OddsUpdate;
 import com.sonal.sportsbetting.config.CorrelationTestSupport;
+import com.sonal.sportsbetting.config.WebMvcFilterTestSupport;
 import com.sonal.sportsbetting.service.BettingService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +24,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = OddsController.class)
-@Import(CorrelationTestSupport.class)
+@Import({CorrelationTestSupport.class, WebMvcFilterTestSupport.class})
 class OddsControllerMvcTest {
 
     @Autowired

@@ -1,0 +1,177 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "k6 Request Rate",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "targets": [{ "refId": "A", "expr": "sum(rate(k6_http_reqs_total[2m]))", "legendFormat": "k6 req/s" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "k6 Failed Request Rate",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
+      "targets": [{ "refId": "A", "expr": "avg(last_over_time(k6_http_req_failed_rate[2m])) * 100", "legendFormat": "failed %" }],
+      "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "k6 HTTP P95 Duration",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
+      "targets": [{ "refId": "A", "expr": "avg(last_over_time(k6_http_req_duration_p95[2m])) * 1000", "legendFormat": "p95 ms" }],
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "App HTTP Throughput",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 8 },
+      "targets": [{ "refId": "A", "expr": "sum(rate(http_server_requests_seconds_count[1m]))", "legendFormat": "app req/s" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "App HTTP Avg Latency",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 8 },
+      "targets": [{ "refId": "A", "expr": "sum(rate(http_server_requests_seconds_sum[1m])) / sum(rate(http_server_requests_seconds_count[1m])) * 1000", "legendFormat": "avg ms" }],
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Total Bets Exposure",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 8 },
+      "targets": [{ "refId": "A", "expr": "bets_exposure", "legendFormat": "exposure" }],
+      "fieldConfig": { "defaults": { "unit": "none" }, "overrides": [] }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Rate Limit Test - 429 Rate",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 16 },
+      "targets": [{ "refId": "A", "expr": "avg(k6_rate_limit_errors_rate{test=\"rate_limit\"}) * 100", "legendFormat": "rate_limit 429 %" }],
+      "fieldConfig": { "defaults": { "unit": "percent" }, "overrides": [] }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Rate Limit Test - Duration P95",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 16 },
+      "targets": [{ "refId": "A", "expr": "avg(k6_request_duration_ms_p95{test=\"rate_limit\"})", "legendFormat": "rate_limit p95" }],
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Bet Placement - Success Throughput",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 16 },
+      "targets": [{ "refId": "A", "expr": "sum(rate(k6_bets_placed_total{test=\"bet_placement\"}[1m]))", "legendFormat": "bets placed/s" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Bet Placement - Idempotent Replays",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 24 },
+      "targets": [{ "refId": "A", "expr": "sum(rate(k6_idempotent_replays_total{test=\"bet_placement\"}[1m]))", "legendFormat": "idempotent replay/s" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Bet Placement - P95 Duration",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 24 },
+      "targets": [{ "refId": "A", "expr": "avg(k6_bet_placement_duration_ms_p95{test=\"bet_placement\"})", "legendFormat": "bet placement p95" }],
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Odds Feed - Processed Events",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 24 },
+      "targets": [{ "refId": "A", "expr": "sum(rate(odds_feed_events_processed_total[1m]))", "legendFormat": "events/s" }],
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Settlement/Outbox - Scheduled Task Avg Time",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+      "targets": [{ "refId": "A", "expr": "sum(rate(tasks_scheduled_execution_seconds_sum[1m])) / sum(rate(tasks_scheduled_execution_seconds_count[1m]))", "legendFormat": "scheduled task avg s" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Settlement/Outbox - Active Task Max Time",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+      "targets": [{ "refId": "A", "expr": "max(tasks_scheduled_execution_active_seconds_max)", "legendFormat": "active max s" }],
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] }
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["loadtest", "k6", "sportsbetting", "business"],
+  "templating": {
+    "list": [
+      {
+        "name": "test",
+        "label": "k6 test",
+        "type": "custom",
+        "query": ".* : All,rate_limit,bet_placement,settlement,odds_burst",
+        "current": { "selected": true, "text": "All", "value": ".*" },
+        "options": [
+          { "selected": true, "text": "All", "value": ".*" },
+          { "selected": false, "text": "rate_limit", "value": "rate_limit" },
+          { "selected": false, "text": "bet_placement", "value": "bet_placement" },
+          { "selected": false, "text": "settlement", "value": "settlement" },
+          { "selected": false, "text": "odds_burst", "value": "odds_burst" }
+        ]
+      }
+    ]
+  },
+  "time": { "from": "now-30m", "to": "now" },
+  "timezone": "",
+  "title": "Load Test - Business Flow",
+  "uid": "sportsbetting-loadtest-business",
+  "version": 1,
+  "weekStart": ""
+}

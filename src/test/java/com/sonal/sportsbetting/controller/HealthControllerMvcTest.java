@@ -1,6 +1,7 @@
 package com.sonal.sportsbetting.controller;
 
 import com.sonal.sportsbetting.config.CorrelationTestSupport;
+import com.sonal.sportsbetting.config.WebMvcFilterTestSupport;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -12,7 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(controllers = HealthController.class)
-@Import(CorrelationTestSupport.class)
+@Import({CorrelationTestSupport.class, WebMvcFilterTestSupport.class})
 class HealthControllerMvcTest {
 
     @Autowired
